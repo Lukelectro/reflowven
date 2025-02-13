@@ -230,8 +230,42 @@ void menu_manual_pwm_ctrl()
 
 void menu_manual_temp_ctrl()
 {
+	/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+	uint16_t tgt_temp = 0;
+	uint16_t iteration = 0;
+	uint16_t cur_temp = 0;
+	uint16_t cur_pwm = 0;
 	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+while(1){
+	// picture loop
+	u8g.firstPage();  
+	do {
+	  tgt_temp = ((RotEnc.read()/ROTENC_PPS));
+	  tgt_temp = tgt_temp > settings.max_temp ? settings.max_temp:tgt_temp; // TODO: if this is stuck at 0, see if settings are loaded correctly or if max. temp is still set to 0
+	  u8g.drawStr(1,12,"Temperature");
+	  u8g.drawStr(1,28,"Target");
+	  u8g.drawStr(1,44,"PWM @ ");
+	  u8g.drawStr(1,60,"Time");
+	  u8g.setPrintPos(100,12);
+	  u8g.print(cur_temp,DEC);
+	  u8g.setPrintPos(100,28);
+	  u8g.print(tgt_temp,DEC);
+	  u8g.setPrintPos(100,44);
+	  u8g.print(cur_pwm,DEC);
+	  u8g.setPrintPos(100,60);
+	  u8g.print(iteration,DEC);
+	} while( u8g.nextPage() );
+
+// TODO: return on buttonpress, untill then loop and call PID at regular intervals
+if (button_enter())
+		{
+			//delay(25); // TODO: fix delay or use _delay_ms
+			while (button_enter());
+			//delay(25);
+			RotEnc.write(0); // reset rotary encoder on exit...
+			return;
+		}
+}
 		#if 0
 	sensor_filter_reset();
 	
@@ -758,24 +792,25 @@ void menu_edit_settings()
 #endif
 }
 
-void main_menu() // main menu is also main loop. So this is where the U8Glib picture loop has to go also.
+void main_menu() // main menu is also main loop.
 {
-	char selection = 0;
+	unsigned char selection = 0;
+	fprintf_P(&log_stream, PSTR("Main Menu,\n"));
 
-	while(1) /* TODO: aanpassen aan nieuw LCD en rotary encoder */
+	while(1)
 	{
 		//heat_set(0); // turn off for safety	
-		selection =((RotEnc.read()/ROTENC_PPS)%4);
+		selection = (RotEnc.read()/ROTENC_PPS) & 0x03; // only allow 0,1,2,3 - mask instead of modulo so it wont go negative either.
 	
-		  // picture loop
+		  // u8glib picture loop
 		  u8g.firstPage();  
 		  do {
-			u8g.drawStr(1,12+16*selection,">"); // mark selection (font heigt * selection modulo number of items, distance, marker) TODO: use font height and width read from font setting if possible
-			u8g.drawStr(10,12,"Auto Reflow");
-			u8g.drawStr(10,28,"Set Temperature");
-			u8g.drawStr(10,44,"Set PWM");
-			u8g.drawStr(10,60,"Edit Settings");
-			u8g.setPrintPos(100,16);
+			u8g.drawStr(0,12+16*selection,">"); // mark selection (font heigt * selection modulo number of items, distance, marker) TODO: use font height and width read from font setting if possible
+			u8g.drawStr(8,12,"Auto Reflow");
+			u8g.drawStr(8,28,"Set Temperature");
+			u8g.drawStr(8,44,"Set PWM");
+			u8g.drawStr(8,60,"Edit Settings");
+			u8g.setPrintPos(110,12);
 			u8g.print(selection,DEC);
 		  } while( u8g.nextPage() );
 		  //delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate.
@@ -787,6 +822,7 @@ void main_menu() // main menu is also main loop. So this is where the U8Glib pic
 			//delay(25); // TODO: fix delay or use _delay_ms
 			while (button_enter());
 			//delay(25);
+			RotEnc.write(0); // reset rotary encoder before entering next mode...
 
 			// enter the submenu that is selected
 
