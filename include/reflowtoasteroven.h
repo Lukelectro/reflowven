@@ -30,14 +30,16 @@
 
 #include <stdio.h>
 
+/* TODO: check which of these are unused after conversion to m328p, lcd, rotary encoder and can be removed */
 #define TMR_PRESCALER 64
 #define TMR_OVF_TIMESPAN 0.002048// timespan (in seconds) between consecutive timer overflow events
 #define THERMOCOUPLE_CONSTANT 0.32 // this is derived from the AD595AQ datasheet
 #define ROOM_TEMP 20.0
 #define TEMP_MEASURE_CHAN 7 // the ADC pin connected to the AD595AQ
 #define DEMO_MODE 0 // 1 means the current temperature reading will always be overwritten to match the target temperature, note that PWM output is still active even if in DEMO mode
-//NOT USING USB - M328, not U4. #define USE_USB // define this to use PJRC's USB-serial to communicate to the computer, if this is not defined, nothing is really implemented to handle the logging stream
 #define BOOTLOADER_ADDR 0x7000
+#define ROTENC_PPS 4 //4 pulses per step, so divide read value by 4
+
 
 typedef struct
 {

@@ -36,55 +36,44 @@
 #include <util/delay.h>
 
 #include <Arduino.h>
-#include "lcd.h" // for WIDTH/HEIGTH etc settings
+#include "lcd.h" 
 #include "U8glib.h"
-#include "Encoder.h" // Paul Stofregen encoder library
+#include "userinput.h"
 
 #include "reflowtoasteroven.h"
 #include "temperaturemeasurement.h"
 #include "heatingelement.h"
+#include "menu.h"
 
 
 
 settings_t settings; // store this globally so it's easy to access
-u8g_dev_t u8g_dev_st7920_128x64_sw_spi;
+U8GLIB_ST7920_128X64_1X u8g(A3,A5,A4);	// SPI Com: SCK = en = LCD4 = PC3 = A3, MOSI = rw = SID = LCDE = PC5 = A5, CS = di = RS =LCDRS =PC4 = A4
 FILE log_stream; //different in cpp from c = FDEV_SETUP_STREAM(log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 
-void main_menu();
-void tmr_init();
 static int log_putchar_stream(char c, FILE* stream);
+
 
 int main()
 {
-	// disable stuff enabled by bootloader/fuses
-	//MCUSR &= ~((1 << WDRF) | (1 << IVCE) | (1 << IVSEL)); // todo: modify for atmega328 (or set fuses corretly before...)
-	// wdt_disable();
-
-	// enable clock division
-	//clock_prescale_set(clock_div_2);
-
 	fdev_setup_stream(&log_stream ,log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 	
 	// initialize stuff here
 	
-	sei(); // initialize interrupts
+	//sei(); // initialize interrupts - no, probably will have to use millis() the arduino way
 	
-	#ifdef USE_USB
-	usb_init();
-	#else
-	// if you plan on using another AVR without built-in USB
-	// then initialize the serial port here
-	Serial.begin(9600); // hah, using 'duio has its advantages
-	#endif
+	Serial.begin(9600); // output stream / log / debug
 	
 	fprintf_P(&log_stream, PSTR("hello world,\n"));
 	
 	// adc_init(); -- todo: use arduino instead
-
-	// lcd_init();
-	U8GLIB(&u8g_dev_st7920_128x64_sw_spi, A3,A5,A4,U8G_PIN_NONE,U8G_PIN_NONE);
 	
-	// buttons_init(); todo: replace with rotary encoder
+	buttons_init();
+
+	u8g.begin();
+	u8g.setFont(u8g_font_unifontr);
+	
+
 	//tmr_init();
 	//heat_init();
 	
@@ -92,7 +81,7 @@ int main()
 	
 	// initialization has finished here
 	
-	//main_menu(); // enter the menu system
+	main_menu(); // enter the menu system
 	
 	return 0;
 }
@@ -173,11 +162,6 @@ ISR(TIMER0_OVF_vect)
 }
 #endif
 
-void tmr_init()
-{
-	TCCR0B = _BV(CS01) | _BV(CS00); // start timer0 (a 8 bit timer) with 64 prescaler	
-	TIMSK0 |= _BV(TOV0); // enable interrupts
-}
 
 // store the temperature history for graphic purposes
 uint8_t temp_history[LCD_WIDTH];
@@ -259,8 +243,8 @@ void draw_graph()
 // it works like a state machine
 void auto_go(profile_t* profile)
 {
-		/* TODO: aanpassen */
-		#if 0
+/* TODO: aanpassen */
+#if 0
 	sensor_filter_reset();
 	
 	settings_load(&settings); // load from eeprom
@@ -436,7 +420,7 @@ void auto_go(profile_t* profile)
 				}
 			}
 			
-			heat_set(pwm_ocr); // set the heating element power
+			// heat_set(pwm_ocr); // set the heating element power -- todo:convert
 			
 			graph_timer += TMR_OVF_TIMESPAN * 256;
 			
@@ -572,7 +556,7 @@ void auto_go(profile_t* profile)
 			}
 		}
 	}
-		#endif
+#endif
 }
 
 void profile_setdefault(profile_t* profile)
@@ -617,18 +601,9 @@ static int log_putchar_stream(char c, FILE* stream)
 	{
 		log_putchar_stream('\r', stream);
 	}
-	
-#ifdef USE_USB
-	int r = usb_serial_putchar(c);
-	if (c == '\n')
-	{
-		usb_serial_flush_output();
-	}
-	return r;
-#else
+
 	Serial.write(c); /* uart instead of USB, using arduino */
 	return 0;
-#endif
 
 }
 
