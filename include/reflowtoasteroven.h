@@ -73,8 +73,9 @@ void auto_go(profile_t* profile);
 char* str_from_int(signed long value);
 char* str_from_double(double value, int decimalplaces);
 
-#define min(x,y) (((x) < (y)) ? (x) : (y))
-#define max(x,y) (((x) > (y)) ? (x) : (y))
+//min and max are already defined in arduino.h...
+//#define min(x,y) (((x) < (y)) ? (x) : (y))
+//#define max(x,y) (((x) > (y)) ? (x) : (y))
 #define sensor_to_temperature(x) ((x)*THERMOCOUPLE_CONSTANT)
 
 #endif

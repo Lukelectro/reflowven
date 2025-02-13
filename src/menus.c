@@ -29,7 +29,7 @@
 #include "lcd.h"
 #include "heatingelement.h"
 #include "temperaturemeasurement.h"
-#include "buttons.h"
+// #include "buttons.h" TODO: convert to rotary encoder
 #include <string.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
@@ -43,6 +43,8 @@ uint8_t button_held;
 // changes a value based on the up and down buttons
 double button_change_double(double oldvalue, double increment, double limit1, double limit2)
 {
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	double maxlimit = limit1 >= limit2 ? limit1 : limit2;
 	double minlimit = limit1 < limit2 ? limit1 : limit2;
 	
@@ -77,11 +79,15 @@ double button_change_double(double oldvalue, double increment, double limit1, do
 		// and the value does not change, but keep it in range
 		return (oldvalue > maxlimit) ? maxlimit : ((oldvalue < minlimit) ? minlimit : oldvalue);
 	}
+#endif
 }
 
 // same as above but for integers
 int32_t button_change_int(int32_t oldvalue, int32_t increment, int32_t limit1, int32_t limit2)
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	int32_t maxlimit = limit1 >= limit2 ? limit1 : limit2;
 	int32_t minlimit = limit1 < limit2 ? limit1 : limit2;
 	
@@ -116,7 +122,8 @@ int32_t button_change_int(int32_t oldvalue, int32_t increment, int32_t limit1, i
 		// and the value does not change, but keep it in range
 		return (oldvalue > maxlimit) ? maxlimit : ((oldvalue < minlimit) ? minlimit : oldvalue);
 	}
-}
+#endif
+	}
 
 char* str_from_int(signed long value)
 {
@@ -140,6 +147,9 @@ char* str_from_double(double value, int decimalplaces)
 
 void menu_manual_pwm_ctrl()
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	sensor_filter_reset();
 	
 	fprintf_P(&log_stream, PSTR("manual PWM control mode,\n"));
@@ -213,10 +223,14 @@ void menu_manual_pwm_ctrl()
 			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
 		}
 	}
+		#endif
 }
 
 void menu_manual_temp_ctrl()
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	sensor_filter_reset();
 	
 	settings_load(&settings); // load from eeprom
@@ -318,10 +332,14 @@ void menu_manual_temp_ctrl()
 			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
 		}
 	}
+		#endif
 }
 
 void menu_edit_profile(profile_t* profile)
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	char selection = 0;
 
 	while(1)
@@ -455,10 +473,14 @@ void menu_edit_profile(profile_t* profile)
 			selection = (selection + 1) % 8;
 		}
 	}
+		#endif
 }
 
 void menu_auto_mode()
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	static profile_t profile;
 	profile_load(&profile); // load from eeprom
 
@@ -586,10 +608,14 @@ void menu_auto_mode()
 			selection = (selection + 1) % 4;
 		}
 	}
+		#endif
 }
 
 void menu_edit_settings()
 {
+	
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 	settings_load(&settings); // load from eeprom
 	
 	char selection = 0;
@@ -727,9 +753,10 @@ void menu_edit_settings()
 			selection = (selection + 1) % 7;
 		}
 	}
+#endif
 }
 
-void main_menu()
+void main_menu() // main menu is also main loop. So this is where the U8Glib picture loop has to go also.
 {
 	char selection = 0;
 	char screen_dirty = 1;
@@ -737,6 +764,9 @@ void main_menu()
 	while(1)
 	{
 		heat_set(0); // turn off for safety
+		
+		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+		#if 0
 
 		if (screen_dirty != 0) // only draw if required
 		{
@@ -829,5 +859,6 @@ void main_menu()
 
 			screen_dirty = 1;
 		}
+			#endif
 	}
 }

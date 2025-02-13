@@ -71,3 +71,5 @@ void heat_set(uint16_t ocr)
 {
 	pwm_ocr_temp = ocr >> 7;
 }
+
+//TODO: modify for Atmega328
