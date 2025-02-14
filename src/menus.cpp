@@ -251,19 +251,19 @@ while(1){
 	// picture loop
 	u8g.firstPage();  
 	do {
-	  tgt_temp = ((RotEnc.read()/ROTENC_PPS));
+	  tgt_temp = (abs((RotEnc.read()/ROTENC_PPS)));
 	  tgt_temp = tgt_temp > settings.max_temp ? settings.max_temp:tgt_temp; // TODO: if this is stuck at 0, see if settings are loaded correctly or if max. temp is still set to 0
-	  u8g.drawStr(1,12,"Temperature");
-	  u8g.drawStr(1,28,"Target");
-	  u8g.drawStr(1,44,"PWM @ ");
-	  u8g.drawStr(1,60,"Time");
-	  u8g.setPrintPos(100,12);
+	  u8g.drawStr(0,12,"Temperature");
+	  u8g.drawStr(0,28,"Target");
+	  u8g.drawStr(0,44,"PWM @ ");
+	  u8g.drawStr(0,60,"Time");
+	  u8g.setPrintPos(90,12);
 	  u8g.print(cur_temp,DEC);
-	  u8g.setPrintPos(100,28);
+	  u8g.setPrintPos(90,28);
 	  u8g.print(tgt_temp,DEC);
-	  u8g.setPrintPos(100,44);
+	  u8g.setPrintPos(90,44);
 	  u8g.print(cur_pwm,DEC);
-	  u8g.setPrintPos(100,60);
+	  u8g.setPrintPos(90,60);
 	  u8g.print(iteration,DEC);
 	} while( u8g.nextPage() );
 
@@ -278,7 +278,7 @@ while(1){
 		}
 
 	if(millis() - prevmillis > 500){
-		//every half a second, read temperature and run PID
+		//every half a second, read temperature and run PID -- TODO: seems like millis() runs at half speed! despite #F_CPU being defined, but perhals a 16M still remains somewhere in Arduino?
 		prevmillis = millis();
 		iteration++;
 		cur_sensor = sensor_read();
