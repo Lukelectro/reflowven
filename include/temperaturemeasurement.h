@@ -30,7 +30,9 @@
 
 void adc_init();
 uint16_t sensor_read();
-uint16_t temperature_to_sensor(double temp);
+uint16_t temperature_to_sensor(double);
+uint16_t temperature_to_sensor(float);
+uint16_t temperature_to_sensor(int);
 void sensor_filter_reset();
 
 #endif

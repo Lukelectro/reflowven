@@ -24,7 +24,9 @@
  * This file handles a lot of initialization, low level timer tasks, and automatic temperature control
  *
  */
- 
+
+#define F_CPU 8000000 // 8 MHz internal oscilator
+
 #include <avr/power.h>
 #include <avr/wdt.h>
 #include <avr/io.h>
@@ -59,23 +61,20 @@ int main()
 	fdev_setup_stream(&log_stream ,log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 	
 	// initialize stuff here
-	
-	//sei(); // initialize interrupts - no, probably will have to use millis() the arduino way
+	init(); // init function from arduino. Sets up ADC and timers etc. for their default arduino-usage
+	// that means the reflow oven can't use a timer interrupt for PWM, like Frank Zhao originaly did.
 	
 	Serial.begin(9600); // output stream / log / debug
 	
 	fprintf_P(&log_stream, PSTR("hello world,\n"));
-	
-	// adc_init(); -- todo: use arduino instead
 	
 	buttons_init();
 
 	u8g.begin();
 	u8g.setFont(u8g_font_unifontr);
 	
-
-	//tmr_init();
-	//heat_init();
+	//heat_init(); // todo
+	// todo: read settings from EEPROM
 	
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 	

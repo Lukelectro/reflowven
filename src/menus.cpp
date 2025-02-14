@@ -32,6 +32,7 @@
 // #include "buttons.h" TODO: convert to rotary encoder
 #include "userinput.h"
 #include "lcd.h"
+#include "nvm.h" // so settings can be loaded and saved
 #include <string.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
@@ -231,10 +232,20 @@ void menu_manual_pwm_ctrl()
 void menu_manual_temp_ctrl()
 {
 	/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-	uint16_t tgt_temp = 0;
 	uint16_t iteration = 0;
-	uint16_t cur_temp = 0;
 	uint16_t cur_pwm = 0;
+	double tgt_temp = 0, integral = 0.0, last_error = 0.0;
+	uint16_t tgt_sensor = temperature_to_sensor(tgt_temp);
+	uint16_t cur_sensor = sensor_read();
+	uint16_t cur_temp = 0;
+	unsigned long prevmillis;
+
+	sensor_filter_reset();
+	
+	settings_load(&settings); // load from eeprom
+	
+	// signal start of mode in log
+	fprintf_P(&log_stream, PSTR("manual temperature control mode,\n"));
 	
 while(1){
 	// picture loop
@@ -257,15 +268,36 @@ while(1){
 	} while( u8g.nextPage() );
 
 // TODO: return on buttonpress, untill then loop and call PID at regular intervals
-if (button_enter())
+		if (button_enter())
 		{
-			//delay(25); // TODO: fix delay or use _delay_ms
+			delay(25); // TODO: fix delay or use _delay_ms
 			while (button_enter());
-			//delay(25);
+			delay(25);
 			RotEnc.write(0); // reset rotary encoder on exit...
 			return;
 		}
-}
+
+	if(millis() - prevmillis > 500){
+		//every half a second, read temperature and run PID
+		prevmillis = millis();
+		iteration++;
+		cur_sensor = sensor_read();
+		cur_temp = sensor_to_temperature(cur_sensor);
+		tgt_sensor = temperature_to_sensor((double)tgt_temp);
+		cur_sensor = sensor_read();
+		//cur_pwm = pid((double)temperature_to_sensor((double)tgt_temp), (double)cur_sensor, &integral, &last_error); TODO: pid is defined in main and should go into a .c/h pair for reuse here
+		if(iteration&0x01){
+			//every second, write log too
+			//fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration * TMR_OVF_TIMESPAN * 512, 1));
+			fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration /2, 1));
+			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(cur_sensor));
+			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(tgt_temp));
+			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
+		}
+	}
+
+
+	}
 		#if 0
 	sensor_filter_reset();
 	
@@ -813,15 +845,14 @@ void main_menu() // main menu is also main loop.
 			u8g.setPrintPos(110,12);
 			u8g.print(selection,DEC);
 		  } while( u8g.nextPage() );
-		  //delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate.
-		  //also todo: there seems to be a problem with delay, it seems to hang...
+		  //delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate. -- meh, for set manual temperature and for reflow. So best make the PID a reusable function
 		
 
 		if (button_enter())
 		{
-			//delay(25); // TODO: fix delay or use _delay_ms
+			delay(25); // TODO: fix delay or use _delay_ms
 			while (button_enter());
-			//delay(25);
+			delay(25);
 			RotEnc.write(0); // reset rotary encoder before entering next mode...
 
 			// enter the submenu that is selected

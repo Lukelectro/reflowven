@@ -30,8 +30,8 @@
 
 #include "reflowtoasteroven.h"
 
-#define EEPROM_SETTINGS_ADDR 0
-#define EEPROM_PROFILE_ADDR (EEPROM_SETTINGS_ADDR + 2 + sizeof(settings_t))
+#define EEPROM_SETTINGS_ADDR ((uint8_t*)+0) // cannot just be 0, has to specify it is a pointer, because it is used as a pointer later and if unspecified defaults to unsigned long long.
+#define EEPROM_PROFILE_ADDR  (EEPROM_SETTINGS_ADDR + 2 + sizeof(settings_t))
 
 void profile_load(profile_t* profile);
 void profile_save(profile_t* profile);
