@@ -4,7 +4,7 @@
 #include "Encoder.h"
 
 extern Encoder RotEnc;
-void buttons_init();
+void button_init();
 
 #define button_enter() bit_is_clear(PIND, 4)
 

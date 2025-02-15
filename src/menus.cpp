@@ -1,17 +1,17 @@
 /* Reflow Toaster Oven
  * http://frank.circleofcurrent.com/reflowtoasteroven/
  * Copyright (c) 2011 Frank Zhao
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -38,105 +38,39 @@
 #include <avr/pgmspace.h>
 
 // this string is allocated for temporary use
-char strbuf[(LCD_WIDTH/FONT_WIDTH) + 2];
+char strbuf[(LCD_WIDTH / FONT_WIDTH) + 2];
 
-// this counts the number of loop iterations that a button has been held for
-uint8_t button_held;
-
-// changes a value based on the up and down buttons
-double button_change_double(double oldvalue, double increment, double limit1, double limit2)
-{
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+//change a value, between limits, with the rotary encoder, for use in loops and with doubles.
+double change_value_double(double oldvalue, double increment, double limit1, double limit2){
+	double temp;
 	double maxlimit = limit1 >= limit2 ? limit1 : limit2;
 	double minlimit = limit1 < limit2 ? limit1 : limit2;
-	
-	if (button_up())
-	{
-		button_debounce();
 
-		// the amount of change occurs increases as the button is held down for longer
-		button_held = (button_held < 200) ? (button_held + 1) : button_held;
-		increment += increment*(button_held/3);
+	temp = oldvalue + (RotEnc.readAndReset() / (ROTENC_PPS) * increment);
 
-		// return the changed value
-		return ((oldvalue + increment) > maxlimit) ? maxlimit : (oldvalue + increment);
-		// the range of this value is also limited
-	}
-	else if (button_down())
-	{
-		button_debounce();
-
-		// the amount of change occurs increases as the button is held down for longer
-		button_held = (button_held < 200) ? (button_held + 1) : button_held;
-		increment += increment*(button_held/3);
-
-		// return the changed value
-		return ((oldvalue - increment) < minlimit) ? minlimit : (oldvalue - increment);
-		// the range of this value is also limited
-	}
-	else
-	{
-		// no button pressed, meaning button is not held down
-		button_held = 0;
-		// and the value does not change, but keep it in range
-		return (oldvalue > maxlimit) ? maxlimit : ((oldvalue < minlimit) ? minlimit : oldvalue);
-	}
-#endif
+	return (temp > maxlimit) ? maxlimit : ((temp < minlimit) ? minlimit : temp);
 }
 
-// same as above but for integers
-int32_t button_change_int(int32_t oldvalue, int32_t increment, int32_t limit1, int32_t limit2)
-{
-	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+//same as above, but for ints
+int32_t change_value_int(int32_t oldvalue, int32_t increment, int32_t limit1, int32_t limit2){
+	int32_t temp;
 	int32_t maxlimit = limit1 >= limit2 ? limit1 : limit2;
 	int32_t minlimit = limit1 < limit2 ? limit1 : limit2;
-	
-	if (button_up())
-	{
-		button_debounce();
 
-		// the amount of change occurs increases as the button is held down for longer
-		button_held = (button_held < 100) ? (button_held + 1) : button_held;
-		increment += increment*(button_held/3);
+	temp = oldvalue + (RotEnc.readAndReset() / (ROTENC_PPS) * increment);
 
-		// return the changed value
-		return ((oldvalue + increment) > maxlimit) ? maxlimit : (oldvalue + increment);
-		// the range of this value is also limited
-	}
-	else if (button_down())
-	{
-		button_debounce();
+	return (temp > maxlimit) ? maxlimit : ((temp < minlimit) ? minlimit : temp);
+}
 
-		// the amount of change occurs increases as the button is held down for longer
-		button_held = (button_held < 100) ? (button_held + 1) : button_held;
-		increment += increment*(button_held/3);
-
-		// return the changed value
-		return ((oldvalue - increment) < minlimit) ? minlimit : (oldvalue - increment);
-		// the range of this value is also limited
-	}
-	else
-	{
-		// no button pressed, meaning button is not held down
-		button_held = 0;
-		// and the value does not change, but keep it in range
-		return (oldvalue > maxlimit) ? maxlimit : ((oldvalue < minlimit) ? minlimit : oldvalue);
-	}
-#endif
-	}
-
-char* str_from_int(signed long value)
+char *str_from_int(signed long value)
 {
 	return ltoa(value, strbuf, 10);
 }
 
-char* str_from_double(double value, int decimalplaces)
+char *str_from_double(double value, int decimalplaces)
 {
-	char* result = dtostrf(value, -(LCD_WIDTH/FONT_WIDTH), decimalplaces, strbuf);
-	
+	char *result = dtostrf(value, -(LCD_WIDTH / FONT_WIDTH), decimalplaces, strbuf);
+
 	// trim trailing spaces
 	int8_t len = strlen(result);
 	len--;
@@ -150,9 +84,9 @@ char* str_from_double(double value, int decimalplaces)
 
 void menu_manual_pwm_ctrl()
 {
-	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+
+/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+#if 0
 	sensor_filter_reset();
 	
 	fprintf_P(&log_stream, PSTR("manual PWM control mode,\n"));
@@ -226,7 +160,7 @@ void menu_manual_pwm_ctrl()
 			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
 		}
 	}
-		#endif
+#endif
 }
 
 void menu_manual_temp_ctrl()
@@ -234,180 +168,98 @@ void menu_manual_temp_ctrl()
 	/* TODO: aanpassen aan nieuw LCD en rotary encoder */
 	uint16_t iteration = 0;
 	uint16_t cur_pwm = 0;
-	double tgt_temp = 0, integral = 0.0, last_error = 0.0;
-	uint16_t tgt_sensor = temperature_to_sensor(tgt_temp);
+	double tgt_temp = 0;
+	double integral = 0.0, last_error = 0.0;
+	uint16_t tgt_sensor = temperature_to_sensor((double)tgt_temp);
 	uint16_t cur_sensor = sensor_read();
 	uint16_t cur_temp = 0;
 	unsigned long prevmillis;
 
 	sensor_filter_reset();
-	
+
 	settings_load(&settings); // load from eeprom
-	
+
 	// signal start of mode in log
 	fprintf_P(&log_stream, PSTR("manual temperature control mode,\n"));
 	
-while(1){
-	// picture loop
-	u8g.firstPage();  
-	do {
-	  tgt_temp = (abs((RotEnc.read()/ROTENC_PPS)));
-	  tgt_temp = tgt_temp > settings.max_temp ? settings.max_temp:tgt_temp; // TODO: if this is stuck at 0, see if settings are loaded correctly or if max. temp is still set to 0
-	  u8g.drawStr(0,12,"Temperature");
-	  u8g.drawStr(0,28,"Target");
-	  u8g.drawStr(0,44,"PWM @ ");
-	  u8g.drawStr(0,60,"Time");
-	  u8g.setPrintPos(90,12);
-	  u8g.print(cur_temp,DEC);
-	  u8g.setPrintPos(90,28);
-	  u8g.print(tgt_temp,DEC);
-	  u8g.setPrintPos(90,44);
-	  u8g.print(cur_pwm,DEC);
-	  u8g.setPrintPos(90,60);
-	  u8g.print(iteration,DEC);
-	} while( u8g.nextPage() );
+	RotEnc.write(0);
+	
+	while (1)
+	{
+		// picture loop
+		u8g.firstPage();
+		do
+		{	
+			//todo: this can be done smarter/faster then with a lot of doubles, maybe look into later if needed. Or could use change_value_double()...); function...
+			tgt_temp = RotEnc.read()/ROTENC_PPS;
+			
+			if(tgt_temp>settings.max_temp){
+				tgt_temp = settings.max_temp;
+				RotEnc.write(tgt_temp*ROTENC_PPS);
+			} 
+			else if (tgt_temp<0)
+			{  
+				tgt_temp = 0;
+				RotEnc.write(0);
+			}
 
-// TODO: return on buttonpress, untill then loop and call PID at regular intervals
+			
+	
+			
+			u8g.drawStr(0, 12, "Is");
+			u8g.drawStr(55, 12, "Set");
+			u8g.drawStr(0, 28, "PWM @ ");
+			u8g.drawStr(0, 44, "Tick");
+			u8g.setPrintPos(20, 12);
+			u8g.print(cur_temp, DEC);
+			u8g.setPrintPos(85, 12);
+			u8g.print(tgt_temp, 0);
+			u8g.setPrintPos(85, 28);
+			u8g.print(cur_pwm, DEC);
+			u8g.setPrintPos(85, 44);
+			u8g.print(iteration, DEC);
+		} while (u8g.nextPage());
+		//TODO: maybe draw a temperature graph below the text?
+
+		// return on buttonpress, untill then loop and call PID at regular intervals
 		if (button_enter())
 		{
-			delay(25); // TODO: fix delay or use _delay_ms
-			while (button_enter());
+			delay(25); 
+			while (button_enter())
+				;
 			delay(25);
 			RotEnc.write(0); // reset rotary encoder on exit...
 			return;
 		}
 
-	if(millis() - prevmillis > 500){
-		//every half a second, read temperature and run PID -- TODO: seems like millis() runs at half speed! despite #F_CPU being defined, but perhals a 16M still remains somewhere in Arduino?
-		prevmillis = millis();
-		iteration++;
-		cur_sensor = sensor_read();
-		cur_temp = sensor_to_temperature(cur_sensor);
-		tgt_sensor = temperature_to_sensor((double)tgt_temp);
-		cur_sensor = sensor_read();
-		//cur_pwm = pid((double)temperature_to_sensor((double)tgt_temp), (double)cur_sensor, &integral, &last_error); TODO: pid is defined in main and should go into a .c/h pair for reuse here
-		if(iteration&0x01){
-			//every second, write log too
-			//fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration * TMR_OVF_TIMESPAN * 512, 1));
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration /2, 1));
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(cur_sensor));
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(tgt_temp));
-			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
-		}
-	}
-
-
-	}
-		#if 0
-	sensor_filter_reset();
-	
-	settings_load(&settings); // load from eeprom
-	
-	// signal start of mode in log
-	fprintf_P(&log_stream, PSTR("manual temperature control mode,\n"));
-
-	uint16_t iteration = 0;
-	uint16_t tgt_temp = 0;
-	uint16_t cur_pwm = 0;
-	double integral = 0.0, last_error = 0.0;
-	uint16_t tgt_sensor = temperature_to_sensor((double)tgt_temp);
-	uint16_t cur_sensor = sensor_read();
-	
-	while(1)
-	{
-		if (tmr_drawlcd_flag || (tmr_checktemp_flag == 0 && tmr_writelog_flag == 0))
+		if (millis() - prevmillis > 500)
 		{
-			tmr_drawlcd_flag = 0;
-			// draw the LCD
-			for (int r = 0; r < LCD_ROWS; r++)
-			{
-				lcd_set_row_column(r, 0);
-
-				switch (r)
-				{
-					case 0:
-						// screen title
-						fprintf_P(&lcd_stream, PSTR("Manual Temp Control\n"));
-						break;
-					case 1:
-						// this creates a horizontal divider line
-						for (int c = 0; c < LCD_WIDTH; c++)
-						{
-							lcd_draw_unit(0x3C, 0x5A, 0x3C, 0x5A);
-						}
-						break;
-						
-					// print info/submenu items
-					case 2:
-						fprintf_P(&lcd_stream, PSTR("Target= %s `C\n"), str_from_int(tgt_temp));
-						break;
-					case 3:
-						fprintf_P(&lcd_stream, PSTR("Current: %s `C\n"), str_from_int(lround(sensor_to_temperature(cur_sensor))));
-						break;
-					case 4:
-						fprintf_P(&lcd_stream, PSTR("Sensor: %s / 1023\n"), str_from_int(cur_sensor));
-						break;
-					case 5:
-						fprintf_P(&lcd_stream, PSTR("PWM: %s / 65535\n"), str_from_int(cur_pwm));
-						break;
-					default:
-						lcd_clear_restofrow();
-				}
-			}
-			
-			// change this value according to which button is pressed
-			tgt_temp = button_change_int(tgt_temp, 10, 0, 350);
-		}
-
-		// reset these so the PID controller starts fresh when settings change
-		if (button_up() || button_down())
-		{
-			integral = 0;
-			last_error = 0;
-		}
-
-		if (button_mid())
-		{
-			button_held = 0;
-
-			button_debounce();
-			while (button_mid());
-			button_debounce();
-
-			// exit this mode, back to home menu
-			return;
-		}
-
-		if (tmr_checktemp_flag)
-		{
-			tmr_checktemp_flag = 0;
-			
-			tgt_sensor = temperature_to_sensor((double)tgt_temp);
+			// every half a second, read temperature and run PID
+			prevmillis = millis();
+			iteration++;
 			cur_sensor = sensor_read();
-			cur_pwm = pid((double)temperature_to_sensor((double)tgt_temp), (double)cur_sensor, &integral, &last_error);
-		}
-
-		if (tmr_writelog_flag)
-		{
-			tmr_writelog_flag = 0;
-			
-			iteration++; // used so CSV entries can be sorted by time
-
-			// print log in CSV format
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration * TMR_OVF_TIMESPAN * 512, 1));
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(cur_sensor));
-			fprintf_P(&log_stream, PSTR("%s, "), str_from_int(tgt_temp));
-			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
+			cur_temp = sensor_to_temperature(cur_sensor);
+			tgt_sensor = temperature_to_sensor((double)tgt_temp); // todo: maybe convert this just once after setting tgt?
+			cur_sensor = sensor_read();
+			cur_pwm = pid((double)tgt_sensor, (double)cur_sensor, &integral, &last_error);
+		if(iteration&0x01)
+			{
+				// every second, write log too
+				// fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration * TMR_OVF_TIMESPAN * 512, 1));
+				fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration / 2, 1));
+				fprintf_P(&log_stream, PSTR("%s, "), str_from_int(cur_sensor));
+				fprintf_P(&log_stream, PSTR("%s, "), str_from_int(tgt_temp));
+				fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(cur_pwm));
+			}
 		}
 	}
-		#endif
 }
 
-void menu_edit_profile(profile_t* profile)
+void menu_edit_profile(profile_t *profile)
 {
-	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+
+/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+#if 0
 	char selection = 0;
 
 	while(1)
@@ -541,14 +393,14 @@ void menu_edit_profile(profile_t* profile)
 			selection = (selection + 1) % 8;
 		}
 	}
-		#endif
+#endif
 }
 
 void menu_auto_mode()
 {
-	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+
+/* TODO: aanpassen aan nieuw LCD en rotary encoder */
+#if 0
 	static profile_t profile;
 	profile_load(&profile); // load from eeprom
 
@@ -676,14 +528,130 @@ void menu_auto_mode()
 			selection = (selection + 1) % 4;
 		}
 	}
-		#endif
+#endif
 }
 
 void menu_edit_settings()
 {
-	
-		/* TODO: aanpassen aan nieuw LCD en rotary encoder */
-		#if 0
+	settings_load(&settings); // load from eeprom
+	unsigned char selection = 0;
+	fprintf_P(&log_stream, PSTR("Edit Settings Menu,\n"));
+	unsigned char selecting = 1;
+
+
+	while (1)
+	{
+		// heat_set(0); // turn off for safety
+		
+		// u8glib picture loop
+		u8g.firstPage();
+		do
+		{
+			if(selection<4){
+			u8g.drawStr(0, 12 + 16 * selection, ">"); // mark selection
+			u8g.drawStr(6, 12, "PID P =");
+			u8g.drawStr(6, 28, "PID I =");
+			u8g.drawStr(6, 44, "PID D =");
+			//u8g.drawStr(6, 60, "Max °C"); // TODO: fix display of degree sign °
+			u8g.drawStr(6, 60, "Max \177C"); 
+			u8g.setPrintPos(70, 12);
+			u8g.print(settings.pid_p, 2);
+			u8g.setPrintPos(70, 28);
+			u8g.print(settings.pid_i, 2);
+			u8g.setPrintPos(70, 44);
+			u8g.print(settings.pid_d, 2);
+			u8g.setPrintPos(70, 60);
+			u8g.print(settings.max_temp, 1);
+			}
+			else{
+				u8g.drawStr(0, 12 + 16 * (selection-4), ">"); // mark selection
+				u8g.drawStr(6, 12, "Time to Max");
+				u8g.setPrintPos(100, 12);
+				u8g.print(settings.time_to_max, 0);
+				u8g.drawStr(6, 28, "Reset defaults");
+				u8g.drawStr(6, 44, "Save & exit");
+				u8g.drawStr(6, 60, "Cancel & exit");
+			}
+		} while (u8g.nextPage());
+		
+		if (button_enter())
+		{
+			delay(25);
+			while (button_enter())
+				;
+			delay(25);
+			RotEnc.write(0); // reset rotary encoder before entering next mode...
+			selecting ^= 0x01 ; // exor = toggle selecting - if enter is pressed on a value edit that value untill enter is pressed again.
+
+			// act on the selection (return to main or reset...)
+			switch(selection){
+				case 5: // reset default
+						settings_setdefault(&settings);
+						selecting = 1;
+				break;
+				case 6: // save settings and return to main
+					if (settings_valid(&settings))
+					{
+						settings_save(&settings); // save to eeprom
+
+						// back to main menu
+						return;
+					}
+					else
+					{
+						u8g.firstPage();
+						do
+						{
+						u8g.drawStr(0, 12, "Error in set-");
+						u8g.drawStr(0, 28, "tings, please");
+						u8g.drawStr(0, 28, "Review & fix");
+						} while (u8g.nextPage());
+						_delay_ms(1000);
+						selecting = 1; // back to select which setting to correct
+					}
+					break;
+				case 7: // discard changes and return to main
+					return;
+				break;
+				default:
+				break;
+			}
+		}
+
+		// edit values if not selecting
+		if(selecting == 1){
+			selection = (RotEnc.read() / ROTENC_PPS);
+			if(selection>254){ 		// underflow
+				RotEnc.write(7*ROTENC_PPS); 
+			}else if (selection>7){ // overflow
+				RotEnc.write(0);
+			}
+		}
+		else
+		{
+			switch(selection){
+				case 0: // PID P
+					settings.pid_p = change_value_double(settings.pid_p, 0.1, 0.0, 10000.0);
+				break;
+				case 1: // PID I
+					settings.pid_i = change_value_double(settings.pid_i, 0.01, 0.0, 10000.0);
+				break;
+				case 2: // PID D
+					settings.pid_d = change_value_double(settings.pid_d, 0.01, -10000.0, 10000.0);
+				break;
+				case 3:	// maximum temperature
+				settings.max_temp = change_value_double(settings.max_temp, 1.0, 200.0, 350.0);
+				break;
+				case 4: // time to maximum
+				settings.time_to_max = change_value_double(settings.time_to_max, 1.0, 0.0, (double) 60*20);
+				break;
+				default:
+				break;
+			}
+		}
+}
+	//TODO: bezig met aanpassen aan rotary encoder en lcd
+#if 0
 	settings_load(&settings); // load from eeprom
 	
 	char selection = 0;
@@ -829,29 +797,30 @@ void main_menu() // main menu is also main loop.
 	unsigned char selection = 0;
 	fprintf_P(&log_stream, PSTR("Main Menu,\n"));
 
-	while(1)
+	while (1)
 	{
-		//heat_set(0); // turn off for safety	
-		selection = (RotEnc.read()/ROTENC_PPS) & 0x03; // only allow 0,1,2,3 - mask instead of modulo so it wont go negative either.
-	
-		  // u8glib picture loop
-		  u8g.firstPage();  
-		  do {
-			u8g.drawStr(0,12+16*selection,">"); // mark selection (font heigt * selection modulo number of items, distance, marker) TODO: use font height and width read from font setting if possible
-			u8g.drawStr(8,12,"Auto Reflow");
-			u8g.drawStr(8,28,"Set Temperature");
-			u8g.drawStr(8,44,"Set PWM");
-			u8g.drawStr(8,60,"Edit Settings");
-			u8g.setPrintPos(110,12);
-			u8g.print(selection,DEC);
-		  } while( u8g.nextPage() );
-		  //delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate. -- meh, for set manual temperature and for reflow. So best make the PID a reusable function
-		
+		heat_set(0); // turn off for safety
+		selection = (RotEnc.read() / ROTENC_PPS) & 0x03; // only allow 0,1,2,3 - mask instead of modulo so it wont go negative either.
+
+		// u8glib picture loop
+		u8g.firstPage();
+		do
+		{
+			u8g.drawStr(0, 12 + 16 * selection, ">"); // mark selection (font heigt * selection modulo number of items, distance, marker) TODO: use font height and width read from font setting if possible
+			u8g.drawStr(6, 12, "Auto Reflow");
+			u8g.drawStr(6, 28, "Set Temperature");
+			u8g.drawStr(6, 44, "Set PWM");
+			u8g.drawStr(6, 60, "Edit Settings");
+			//u8g.setPrintPos(110, 12);
+			//u8g.print(selection, DEC);
+		} while (u8g.nextPage());
+		// delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate. -- meh, for set manual temperature and for reflow. So best make the PID a reusable function
 
 		if (button_enter())
 		{
-			delay(25); // TODO: fix delay or use _delay_ms
-			while (button_enter());
+			delay(25); 
+			while (button_enter())
+				;
 			delay(25);
 			RotEnc.write(0); // reset rotary encoder before entering next mode...
 
@@ -873,6 +842,12 @@ void main_menu() // main menu is also main loop.
 			{
 				menu_edit_settings();
 			}
+			#if 0
+			else if (selection ==4)
+			{
+				menu_edit_profile();
+			}
+			#endif
 		}
 	}
 }

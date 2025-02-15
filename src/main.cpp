@@ -25,7 +25,7 @@
  *
  */
 
-#define F_CPU 8000000 // 8 MHz internal oscilator
+#define F_CPU 8000000UL // 8 MHz internal oscilator
 
 #include <avr/power.h>
 #include <avr/wdt.h>
@@ -68,13 +68,13 @@ int main()
 	
 	fprintf_P(&log_stream, PSTR("hello world,\n"));
 	
-	buttons_init();
+	button_init();
 
 	u8g.begin();
-	u8g.setFont(u8g_font_unifontr);
+	u8g.setFont(u8g_font_unifont);
+	adc_init();
 	
 	//heat_init(); // todo
-	// todo: read settings from EEPROM
 	
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 	
