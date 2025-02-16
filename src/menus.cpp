@@ -84,6 +84,82 @@ char *str_from_double(double value, int decimalplaces)
 
 void menu_manual_pwm_ctrl()
 {
+	uint16_t iteration = 0;
+	int32_t rot_enc_val;
+	uint16_t pwm = 0;
+	uint16_t cur_sensor = sensor_read();
+	uint16_t cur_temp = 0;
+	unsigned long prevmillis;
+
+	sensor_filter_reset();
+
+	// signal start of mode in log
+	fprintf_P(&log_stream, PSTR("manual PWM control mode,\n"));
+	
+	RotEnc.write(0);
+	
+	while (1)
+	{
+
+		rot_enc_val = 1024*RotEnc.read()/ROTENC_PPS;
+
+		if(rot_enc_val>65535){
+			RotEnc.write(65536);
+			rot_enc_val=65536;
+		} 
+		else if (rot_enc_val<0)
+		{  
+			RotEnc.write(0);
+			rot_enc_val=0;
+		}
+		pwm=rot_enc_val;
+
+		// picture loop
+		u8g.firstPage();
+		do
+		{	
+			u8g.drawStr(0, 12, "PWM");
+			u8g.drawStr(0, 28, "SENSOR");
+			u8g.drawStr(100, 28, "\0b""C");
+			u8g.drawStr(0, 60, "Tick");
+			u8g.setPrintPos(90, 28);
+			u8g.print(cur_temp, DEC);
+			u8g.setPrintPos(90, 12);
+			u8g.print(pwm, 0);
+			u8g.setPrintPos(90, 28);
+			u8g.print(cur_temp, DEC);
+			u8g.setPrintPos(85, 60);
+			u8g.print(iteration, DEC);
+		} while (u8g.nextPage());
+
+		// return on buttonpress, untill then loop and call PID at regular intervals
+		if (button_enter())
+		{
+			delay(25); 
+			while (button_enter())
+				;
+			delay(25);
+			RotEnc.write(0); // reset rotary encoder on exit...
+			return;
+		}
+
+		if (millis() - prevmillis > 500)
+		{
+			// every half a second, read temperature and run PID
+			prevmillis = millis();
+			iteration++;
+			cur_sensor = sensor_read();
+			cur_temp = sensor_to_temperature(cur_sensor);
+		if(iteration&0x01)
+			{
+				// every second, write log too
+				// fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration * TMR_OVF_TIMESPAN * 512, 1));
+				fprintf_P(&log_stream, PSTR("%s, "), str_from_double(iteration / 2, 1));
+				fprintf_P(&log_stream, PSTR("%s, "), str_from_int(cur_sensor));
+				fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(pwm));
+			}
+		}
+	}
 
 /* TODO: aanpassen aan nieuw LCD en rotary encoder */
 #if 0
@@ -165,7 +241,6 @@ void menu_manual_pwm_ctrl()
 
 void menu_manual_temp_ctrl()
 {
-	/* TODO: aanpassen aan nieuw LCD en rotary encoder */
 	uint16_t iteration = 0;
 	uint16_t cur_pwm = 0;
 	double tgt_temp = 0;
@@ -186,26 +261,24 @@ void menu_manual_temp_ctrl()
 	
 	while (1)
 	{
+
+		//todo: this can be done smarter/faster then with a lot of doubles, maybe look into later if needed. Or could use change_value_double()...); function...
+		tgt_temp = RotEnc.read()/ROTENC_PPS;
+
+		if(tgt_temp>settings.max_temp){
+			tgt_temp = settings.max_temp;
+			RotEnc.write(tgt_temp*ROTENC_PPS);
+		} 
+		else if (tgt_temp<0)
+		{  
+			tgt_temp = 0;
+			RotEnc.write(0);
+		}
+		
 		// picture loop
 		u8g.firstPage();
 		do
 		{	
-			//todo: this can be done smarter/faster then with a lot of doubles, maybe look into later if needed. Or could use change_value_double()...); function...
-			tgt_temp = RotEnc.read()/ROTENC_PPS;
-			
-			if(tgt_temp>settings.max_temp){
-				tgt_temp = settings.max_temp;
-				RotEnc.write(tgt_temp*ROTENC_PPS);
-			} 
-			else if (tgt_temp<0)
-			{  
-				tgt_temp = 0;
-				RotEnc.write(0);
-			}
-
-			
-	
-			
 			u8g.drawStr(0, 12, "Is");
 			u8g.drawStr(55, 12, "Set");
 			u8g.drawStr(0, 28, "PWM @ ");
@@ -240,7 +313,6 @@ void menu_manual_temp_ctrl()
 			cur_sensor = sensor_read();
 			cur_temp = sensor_to_temperature(cur_sensor);
 			tgt_sensor = temperature_to_sensor((double)tgt_temp); // todo: maybe convert this just once after setting tgt?
-			cur_sensor = sensor_read();
 			cur_pwm = pid((double)tgt_sensor, (double)cur_sensor, &integral, &last_error);
 		if(iteration&0x01)
 			{
@@ -552,8 +624,9 @@ void menu_edit_settings()
 			u8g.drawStr(6, 12, "PID P =");
 			u8g.drawStr(6, 28, "PID I =");
 			u8g.drawStr(6, 44, "PID D =");
-			//u8g.drawStr(6, 60, "Max °C"); // TODO: fix display of degree sign °
-			u8g.drawStr(6, 60, "Max \177C"); 
+			//u8g.drawStr(6, 60, "Max °C"); // TODO: fix display of degree sign °, it shows as ã° -ish. 
+			u8g.drawStr(6, 60, "Max \xb0""C"); 
+			// the degree sign is 176 in the unifont font table, but without prefixed x the number is octal so x0b was simpler, but the the C is seen as hex too, so use string concatenation
 			u8g.setPrintPos(70, 12);
 			u8g.print(settings.pid_p, 2);
 			u8g.setPrintPos(70, 28);
