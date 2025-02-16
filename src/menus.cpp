@@ -92,6 +92,7 @@ void menu_manual_pwm_ctrl()
 	unsigned long prevmillis;
 
 	sensor_filter_reset();
+	settings_load(&settings); // load from eeprom
 
 	// signal start of mode in log
 	fprintf_P(&log_stream, PSTR("manual PWM control mode,\n"));
@@ -104,8 +105,8 @@ void menu_manual_pwm_ctrl()
 		rot_enc_val = 1024*RotEnc.read()/ROTENC_PPS;
 
 		if(rot_enc_val>65535){
-			RotEnc.write(65536);
-			rot_enc_val=65536;
+			RotEnc.write(1+65535*ROTENC_PPS/1024);
+			rot_enc_val=65535;
 		} 
 		else if (rot_enc_val<0)
 		{  
@@ -120,17 +121,22 @@ void menu_manual_pwm_ctrl()
 		{	
 			u8g.drawStr(0, 12, "PWM");
 			u8g.drawStr(0, 28, "SENSOR");
-			u8g.drawStr(100, 28, "\0b""C");
+			u8g.drawStr(110, 28, "\xb0""C"); // 0xb0 is the degree-sign in the unifont table
 			u8g.drawStr(0, 60, "Tick");
-			u8g.setPrintPos(90, 28);
+			u8g.setPrintPos(80, 28);
 			u8g.print(cur_temp, DEC);
-			u8g.setPrintPos(90, 12);
-			u8g.print(pwm, 0);
-			u8g.setPrintPos(90, 28);
+			u8g.setPrintPos(80, 12);
+			u8g.print(pwm, DEC);
+			u8g.setPrintPos(80, 28);
 			u8g.print(cur_temp, DEC);
-			u8g.setPrintPos(85, 60);
+			u8g.setPrintPos(80, 60);
 			u8g.print(iteration, DEC);
 		} while (u8g.nextPage());
+
+		if(cur_temp > settings.max_temp){ // very rudimentary overtemperature protection. ALSO USE A THERMO FUSE!
+			pwm=0;
+			RotEnc.write(0);			// also reset the rotary encoder to zero, so it needs human interaction to change the PWM from 0 even after oven cooled down a bit
+		}
 
 		// return on buttonpress, untill then loop and call PID at regular intervals
 		if (button_enter())
@@ -279,17 +285,17 @@ void menu_manual_temp_ctrl()
 		u8g.firstPage();
 		do
 		{	
-			u8g.drawStr(0, 12, "Is");
-			u8g.drawStr(55, 12, "Set");
-			u8g.drawStr(0, 28, "PWM @ ");
-			u8g.drawStr(0, 44, "Tick");
-			u8g.setPrintPos(20, 12);
+			u8g.drawStr(25, 14, "\xb0""C Set"); // 0xb0 is the degree sign in the unifont table
+			u8g.drawStr(110, 14, "\xb0""C");
+			u8g.drawStr(0, 29, "PWM @ ");
+			u8g.drawStr(0, 43, "Tick");
+			u8g.setPrintPos(0, 14);
 			u8g.print(cur_temp, DEC);
-			u8g.setPrintPos(85, 12);
+			u8g.setPrintPos(85, 14);
 			u8g.print(tgt_temp, 0);
-			u8g.setPrintPos(85, 28);
+			u8g.setPrintPos(85, 29);
 			u8g.print(cur_pwm, DEC);
-			u8g.setPrintPos(85, 44);
+			u8g.setPrintPos(85, 43);
 			u8g.print(iteration, DEC);
 		} while (u8g.nextPage());
 		//TODO: maybe draw a temperature graph below the text?
@@ -610,7 +616,6 @@ void menu_edit_settings()
 	fprintf_P(&log_stream, PSTR("Edit Settings Menu,\n"));
 	unsigned char selecting = 1;
 
-
 	while (1)
 	{
 		// heat_set(0); // turn off for safety
@@ -625,7 +630,7 @@ void menu_edit_settings()
 			u8g.drawStr(6, 28, "PID I =");
 			u8g.drawStr(6, 44, "PID D =");
 			//u8g.drawStr(6, 60, "Max °C"); // TODO: fix display of degree sign °, it shows as ã° -ish. 
-			u8g.drawStr(6, 60, "Max \xb0""C"); 
+			u8g.drawStr(6, 60, "Max\xb0""C"); 
 			// the degree sign is 176 in the unifont font table, but without prefixed x the number is octal so x0b was simpler, but the the C is seen as hex too, so use string concatenation
 			u8g.setPrintPos(70, 12);
 			u8g.print(settings.pid_p, 2);
@@ -722,148 +727,9 @@ void menu_edit_settings()
 				break;
 			}
 		}
-}
-	//TODO: bezig met aanpassen aan rotary encoder en lcd
-#if 0
-	settings_load(&settings); // load from eeprom
-	
-	char selection = 0;
-	while(1)
-	{
-		heat_set(0); // keep off for safety
-
-		// draw LCD
-		for (int r = 0; r < LCD_ROWS; r++)
-		{
-			lcd_set_row_column(r, 0);
-
-			// draw indicator beside the selected menu item
-			if (r - 2 == selection)
-			{
-				lcd_draw_char('>');
-			}
-			else
-			{
-				if (r != 1)
-				{
-					lcd_draw_char(' ');
-				}
-			}
-
-			switch (r)
-			{
-				case 0:
-					// menu title
-					fprintf_P(&lcd_stream, PSTR("Edit Settings\n"));
-					break;
-				case 1:
-					// draw a horizontal divider line across the screen
-					for (int c = 0; c < LCD_WIDTH; c++)
-					{
-						lcd_draw_unit(0x3C, 0x5A, 0x3C, 0x5A);
-					}
-					break;
-					
-				// display info/submenu items
-				case 2:
-					fprintf_P(&lcd_stream, PSTR("PID P= %s\n"), str_from_double(settings.pid_p, 2));
-					break;
-				case 3:
-					fprintf_P(&lcd_stream, PSTR("PID I= %s\n"), str_from_double(settings.pid_i, 2));
-					break;
-				case 4:
-					fprintf_P(&lcd_stream, PSTR("PID D= %s\n"), str_from_double(settings.pid_d, 2));
-					break;
-				case 5:
-					fprintf_P(&lcd_stream, PSTR("Max Temp= %d `C\n"), (uint16_t)lround(settings.max_temp));
-					break;
-				case 6:
-					fprintf_P(&lcd_stream, PSTR("Time to Max= %d s\n"), (uint16_t)lround(settings.time_to_max));
-					break;
-				case 7:
-					fprintf_P(&lcd_stream, PSTR("Reset to Defaults\n"));
-					break;
-				case 8:
-					fprintf_P(&lcd_stream, PSTR("Back to Home Menu\n"));
-				default:
-					lcd_clear_restofrow();
-			}
-		}
-
-		// change value according to which value is selected and which button is pressed
-		switch(selection)
-		{
-			case 0:
-				settings.pid_p = button_change_double(settings.pid_p, 0.1, 0.0, 10000.0);
-				break;
-			case 1:
-				settings.pid_i = button_change_double(settings.pid_i, 0.01, 0.0, 10000.0);
-				break;
-			case 2:
-				settings.pid_d = button_change_double(settings.pid_d, 0.01, -10000.0, 10000.0);
-				break;
-			case 3:
-				settings.max_temp = button_change_double(settings.max_temp, 1.0, 200.0, 350.0);
-				break;
-			case 4:
-				settings.time_to_max = button_change_double(settings.time_to_max, 1.0, 0.0, 60*20);
-				break;
-			default:
-				// there's no need for button holding if it's in a non-value-changing menu item
-				button_held = 0;
-				break;
-		}
-
-		if (selection == 5) // the "reset to default" menu item
-		{
-			if (button_up())
-			{
-				button_debounce();
-				while (button_up());
-				button_debounce();
-
-				settings_setdefault(&settings);
-			}
-		}
-		else if (selection == 6) // the "back to home menu" option
-		{
-			if (button_up())
-			{
-				button_debounce();
-				while (button_up());
-				button_debounce();
-
-				if (settings_valid(&settings))
-				{
-					settings_save(&settings); // save to eeprom
-
-					// back to main menu
-					return;
-				}
-				else
-				{
-					lcd_clear_screen();
-					lcd_set_row_column(0, 0);
-					fprintf_P(&lcd_stream, PSTR("Error in Settings\n"));
-					_delay_ms(1000);
-				}
-			}
-		}
-
-		if (button_mid())
-		{
-			button_held = 0;
-			
-			button_debounce();
-			while (button_mid());
-			button_debounce();
-
-			// change selected menu item to the next one
-			selection = (selection + 1) % 7;
-		}
 	}
-#endif
 }
+
 
 void main_menu() // main menu is also main loop.
 {
