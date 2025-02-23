@@ -287,7 +287,7 @@ void menu_edit_profile(profile_t *profile)
 			u8g.drawStr(110, 44, "\xb0""C");
 			u8g.drawStr(120, 60, "Soak time"); 
 			// the degree sign is 176 in the unifont font table, but without prefixed x the number is octal so x0b was simpler, but the the C is seen as hex too, so use string concatenation
-			u8g.setPrintPos(95, 12);
+			u8g.setPrintPos(100, 12);
 			u8g.print(profile->start_rate, 1);
 			u8g.setPrintPos(85, 28);
 			u8g.print(profile->soak_temp1, 0);
@@ -298,10 +298,10 @@ void menu_edit_profile(profile_t *profile)
 			}
 			else{
 				u8g.drawStr(0, 12 + 16 * (selection-4), ">"); // mark selection
-				u8g.drawStr(6, 12, "Peak T");
-				u8g.drawStr(6, 28, "Peak t");
-				u8g.drawStr(110, 12, "\xb0""C");
-				u8g.drawStr(120, 28, "s");
+				u8g.drawStr(6, 14, "Peak T");
+				u8g.drawStr(6, 29, "Peak t");
+				u8g.drawStr(110, 14, "\xb0""C");
+				u8g.drawStr(110, 29, "s");
 				u8g.drawStr(6, 44, "Cool Rate");
 				u8g.drawStr(6, 60, "Save & exit"); // TODO: option to exit without saving
 				u8g.setPrintPos(85, 12);
