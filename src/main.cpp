@@ -171,6 +171,16 @@ char graph_text[((LCD_WIDTH/FONT_WIDTH) + 2) * 5];
 
 void draw_graph()
 {
+	u8g.firstPage();
+		do
+		{	
+			for(unsigned char x=0;x<LCD_WIDTH;x++){
+			u8g.drawPixel(x,temp_history[x]); 
+			// graph scaling is done when saving the values, apearently
+			// TODO: that means if I want to use only part of the display, I need to change something there...
+		};
+		} while (u8g.nextPage());
+	
 	/* TODO: aanpassen aan nieuw LCD */
 	#if 0
 	for (int r = 0; r < LCD_ROWS; r++)
