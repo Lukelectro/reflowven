@@ -31,9 +31,9 @@
 #include <avr/io.h>
 
 // define the pin location for the connection to the relay
-#define PWM_PORTx PORTC
-#define PWM_DDRx DDRC
-#define PWM_PIN 7
+#define PWM_PORTx PORTD
+#define PWM_DDRx DDRD
+#define PWM_PIN 6
 
 void heat_init();
 void heat_isr();

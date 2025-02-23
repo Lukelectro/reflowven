@@ -40,8 +40,8 @@ volatile uint16_t pwm_ocr = 0;
 volatile uint16_t pwm_ocr_temp = 0;
 volatile uint16_t heat_isr_cnt = 0;
 
-// this function needs to be called during the timer overflow interrupt of a 8-bit timer running at 8MHz/64
-inline void heat_isr()
+// this function needs to be called during the timer overflow interrupt of a 8-bit timer running at 8MHz/64 -- so OVF at 8M/64/256 = 490.19 Hz, so PWM at 490.2/512 = 0.96 Hz
+void heat_isr() 
 {
 	if (heat_isr_cnt == 511)
 	{
@@ -72,4 +72,4 @@ void heat_set(uint16_t ocr)
 	pwm_ocr_temp = ocr >> 7;
 }
 
-//TODO: modify for Atmega328
+//TODO: modify for Atmega328. Mayyyybe make PWM values 8 bit throughout? Why 16 if only lower 9 are used anyway?

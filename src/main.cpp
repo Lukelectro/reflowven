@@ -38,6 +38,7 @@
 #include <util/delay.h>
 
 #include <Arduino.h>
+#include <TimerOne.h> // Paul Stofregen's TimerOne Library, to use for the ovf interrupt. This breaks Tone() and arduino builtin PWM output which are not used here anyway.
 #include "lcd.h" 
 #include "U8glib.h"
 #include "userinput.h"
@@ -74,7 +75,11 @@ int main()
 	u8g.setFont(u8g_font_unifont);
 	adc_init();
 	
-	//heat_init(); // todo
+	heat_init();
+	Timer1.initialize(2040); // microseconds of timer period... So for 490 Hz, about 2040
+	Timer1.attachInterrupt(heat_isr);
+	Timer1.start();
+
 	
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 	
@@ -135,31 +140,6 @@ volatile uint16_t tmr_ovf_cnt = 0;
 volatile char tmr_checktemp_flag = 0;
 volatile char tmr_drawlcd_flag = 0;
 volatile char tmr_writelog_flag = 0;
-
-#if 0 /* this ISR vector is already in use by arduino / wiring.h - so figure something out to replace it with or figure out how to register it instead of the wiring one. */
-ISR(TIMER0_OVF_vect)
-{
-	heat_isr();
-	
-	tmr_ovf_cnt++;
-	if (tmr_ovf_cnt % 1024 == 0) // about 2s
-	{
-		tmr_ovf_cnt = 0;
-		tmr_checktemp_flag = 1;
-		tmr_drawlcd_flag = 1;
-		tmr_writelog_flag = 1;
-	}
-	else if (tmr_ovf_cnt % 512 == 0) // about 1s
-	{
-		tmr_checktemp_flag = 1;
-		tmr_writelog_flag = 1;
-	}
-	else if (tmr_ovf_cnt % 256 == 0) // about 0.5s
-	{
-		tmr_checktemp_flag = 1;
-	}
-}
-#endif
 
 
 // store the temperature history for graphic purposes

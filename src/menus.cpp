@@ -102,10 +102,11 @@ void menu_manual_pwm_ctrl()
 	fprintf_P(&log_stream, PSTR("manual PWM control mode,\n"));
 	
 	RotEnc.write(0);
+	heat_set(0);
 	
 	while (1)
 	{
-
+		heat_set(pwm);
 		rot_enc_val = 1024*RotEnc.read()/ROTENC_PPS;
 
 		if(rot_enc_val>65535){
@@ -190,9 +191,11 @@ void menu_manual_temp_ctrl()
 	fprintf_P(&log_stream, PSTR("manual temperature control mode,\n"));
 	
 	RotEnc.write(0);
+	heat_set(0);
 	
 	while (1)
 	{
+		heat_set(cur_pwm);
 
 		//todo: this can be done smarter/faster then with a lot of doubles, maybe look into later if needed. Or could use change_value_double()...); function...
 		tgt_temp = RotEnc.read()/ROTENC_PPS;
@@ -284,7 +287,7 @@ void menu_edit_profile(profile_t *profile)
 			u8g.drawStr(110, 44, "\xb0""C");
 			u8g.drawStr(120, 60, "Soak time"); 
 			// the degree sign is 176 in the unifont font table, but without prefixed x the number is octal so x0b was simpler, but the the C is seen as hex too, so use string concatenation
-			u8g.setPrintPos(85, 12);
+			u8g.setPrintPos(95, 12);
 			u8g.print(profile->start_rate, 1);
 			u8g.setPrintPos(85, 28);
 			u8g.print(profile->soak_temp1, 0);
@@ -525,6 +528,7 @@ void menu_auto_mode()
 	static profile_t profile;
 	profile_load(&profile); // load from eeprom
 	fprintf_P(&log_stream, PSTR("Auto Mode Menu,\n"));
+	heat_set(0); // start with heater OFF
 
 	while (1)
 	{
@@ -713,6 +717,7 @@ void menu_auto_mode()
 
 void menu_edit_settings()
 {
+	heat_set(0); // heater off
 	settings_load(&settings); // load from eeprom
 	unsigned char selection = 0;
 	fprintf_P(&log_stream, PSTR("Edit Settings Menu,\n"));
