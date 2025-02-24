@@ -148,101 +148,14 @@ uint8_t temp_history[LCD_WIDTH];
 uint16_t temp_history_idx;
 uint8_t temp_plan[LCD_WIDTH]; // also store the target temperature for comparison purposes
 
-//char graph_text[((LCD_WIDTH/FONT_WIDTH) + 2) * 5];
-char* overlay_text[4];
-
-void draw_graph(char* overlay[4])
-{
-	u8g.firstPage();
-		do
-		{	
-			for(unsigned char x=0;x<LCD_WIDTH;x++){
-			u8g.drawPixel(x,temp_history[x]); 
-			// graph scaling is done when saving the values, apearently
-			// TODO: that means if I want to use only part of the display, I need to change something there...
-		};
-			u8g.drawStr(0,14,overlay[0]);
-			u8g.drawStr(0,29,overlay[1]);
-			u8g.drawStr(0,44,overlay[2]);
-			u8g.drawStr(0,60,overlay[3]);
-		} while (u8g.nextPage());
-	
-	/* TODO: aanpassen aan nieuw LCD */
-	#if 0
-	for (int r = 0; r < LCD_ROWS; r++)
-	{
-		int text_end = 0;
-		if (r < 4)
-		{
-			lcd_set_row_column(r, 0);
-			text_end += FONT_WIDTH * fprintf(&lcd_stream, &(graph_text[r*((LCD_WIDTH/FONT_WIDTH) + 2)]));
-		}
-		
-		lcd_set_row_column(r, text_end);
-		
-		for (int c = text_end; c < LCD_WIDTH; c++)
-		{
-			// flip the numbers because of y axis
-			uint8_t history = LCD_HEIGHT - temp_history[c];
-			uint8_t plan = LCD_HEIGHT - temp_plan[c];
-			
-			int rowtop = r * 8; // calculate actual y location based on row and 8 pixels per row
-			
-			uint8_t b[4] = { 0, 0, 0, 0, };
-			
-			// draw the graph by shading the area below the curve
-			// actual temperature will be a black area
-			for (int bi = 0; bi < 8; bi++)
-			{
-				if (history <= (rowtop + bi))
-				{
-					b[0] |= (1 << bi);
-					b[1] |= (1 << bi);
-					b[2] |= (1 << bi);
-					b[3] |= (1 << bi);
-				}
-				
-				/*
-				
-				// target temperature
-				// commented out because it's mostly useless most of the time
-				
-				if (plan <= (rowtop + bi))
-				{
-					if (plan < history)
-					{
-						b[0] |= (1 << bi);
-						b[1] |= (1 << bi);
-						b[2] |= (1 << bi);
-						b[3] |= (1 << bi);
-					}
-					else if (plan > history && plan == (rowtop + bi))
-					{
-						b[0] &= ~(1 << bi);
-						b[1] &= ~(1 << bi);
-						b[2] &= ~(1 << bi);
-						b[3] &= ~(1 << bi);
-					}
-				}
-				
-				//*/
-			}
-			
-			lcd_draw_unit(b[0], b[1], b[2], b[3]);
-		}
-	}
-#endif
-}
 
 // this function runs an entire reflow soldering profile
 // it works like a state machine
 void auto_go(profile_t* profile)
 {
-	char overlays[16][4];
-	overlay_text[0]=&overlays[0][0]; // TODO: this could be clearer and neater... as of now it is a kludge
-	overlay_text[1]=&overlays[0][1];
-	overlay_text[2]=&overlays[0][2];
-	overlay_text[3]=&overlays[0][3];
+	char overlays[4][16];
+	uint32_t prevmilis;
+	uint8_t tick=0;
 
 	sensor_filter_reset();
 	
@@ -295,7 +208,19 @@ void auto_go(profile_t* profile)
 	double start_temp = tgt_temp;
 	uint16_t cur_sensor = sensor_read();
 	while (1)
-	{	
+	{
+		if(millis()-prevmilis>500){ // this is a bit of a kludge to replace the flags set in timer ISR. And since worst case all 3 are done anyway, why not do all 3 always? As long as it takes less then 500 ms...
+			//TODO: check timing! (see if there is no task starvation / see if doing all 3 does indeed take less then 500 ms)
+			prevmilis=millis();
+			tick++;
+			tmr_checktemp_flag = 1;
+			if(tick&0x02){
+				tmr_writelog_flag = 1;
+			}
+			if(tick&0x04){
+				tmr_drawlcd_flag = 1;
+			}
+		}	
 		if (tmr_checktemp_flag)
 		{
 			tmr_checktemp_flag = 0;
@@ -472,31 +397,31 @@ void auto_go(profile_t* profile)
 			//sprintf_P(&(graph_text[1*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
 			// print some data to top left corner of LCD
 			sprintf_P(&(overlays[0][0]), PSTR("cur:%d`C "), (uint16_t)lround(sensor_to_temperature(cur_sensor)));
-			sprintf_P(&(overlays[0][1]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
+			sprintf_P(&(overlays[1][0]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
 			
 			// tell the user about the current stage
 			switch (stage)
 			{
 				case 0:
 					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Preheat"));
-					sprintf_P(&overlays[0][2], PSTR("Preheat"));
+					sprintf_P(&overlays[2][0], PSTR("Preheat"));
 					break;
 				case 1:
 					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Soak   "));
-					sprintf_P(&overlays[0][2], PSTR("Soak   "));
+					sprintf_P(&overlays[2][0], PSTR("Soak   "));
 					break;
 				case 2:
 				case 3:
 					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Reflow"));
-					sprintf_P(&(overlays[0][2]), PSTR("Reflow"));
+					sprintf_P(&(overlays[2][0]), PSTR("Reflow"));
 					break;
 				case 4:
 					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Cool  "));
-					sprintf_P(&(overlays[0][2]), PSTR("Cool  "));
+					sprintf_P(&(overlays[2][0]), PSTR("Cool  "));
 					break;
 				default:
 					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Done  "));
-					sprintf_P(&(overlays[0][2]), PSTR("Done  "));
+					sprintf_P(&(overlays[2][0]), PSTR("Done  "));
 					break;
 			}
 			
@@ -504,7 +429,7 @@ void auto_go(profile_t* profile)
 			if (DEMO_MODE)
 			{
 				//sprintf_P(&(graph_text[3*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Demo  "));
-				sprintf_P(&overlays[0][3], PSTR("Demo  "));
+				sprintf_P(&overlays[3][0], PSTR("Demo  "));
 			}
 			else
 			{
@@ -515,7 +440,20 @@ void auto_go(profile_t* profile)
 			if (update_graph)
 			{
 				update_graph = 0;
-				draw_graph(overlay_text);
+				//draw_graph(overlay_text);
+				u8g.firstPage();
+				do
+				{	
+					for(unsigned char x=0;x<LCD_WIDTH;x++){
+					u8g.drawPixel(x,LCD_HEIGHT-temp_history[x]); 
+					// graph scaling is done when saving the values, apearently
+					// TODO: that means if I want to use only part of the display, I need to change something there...
+				};
+					u8g.drawStr(0,14,&overlays[0][0]);
+					u8g.drawStr(0,29,&overlays[1][0]);
+					u8g.drawStr(0,44,&overlays[2][0]);
+					u8g.drawStr(0,60,&overlays[3][0]);
+				} while (u8g.nextPage());
 			}
 		}
 		
