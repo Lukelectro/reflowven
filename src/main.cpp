@@ -42,6 +42,7 @@
 #include "lcd.h" 
 #include "U8glib.h"
 #include "userinput.h"
+#include "nvm.h" // settings_load etc.
 
 #include "reflowtoasteroven.h"
 #include "temperaturemeasurement.h"
@@ -76,7 +77,7 @@ int main()
 	adc_init();
 	
 	heat_init();
-	Timer1.initialize(2040); // microseconds of timer period... So for 490 Hz, about 2040
+	Timer1.initialize(TMR_OVF_TIMESPAN*1000000); // microseconds of timer period... So for 490 Hz, about 2048 (TIMER_OVF_TIMESPAN is the same thing, but in seconds)
 	Timer1.attachInterrupt(heat_isr);
 	Timer1.start();
 
@@ -147,9 +148,10 @@ uint8_t temp_history[LCD_WIDTH];
 uint16_t temp_history_idx;
 uint8_t temp_plan[LCD_WIDTH]; // also store the target temperature for comparison purposes
 
-char graph_text[((LCD_WIDTH/FONT_WIDTH) + 2) * 5];
+//char graph_text[((LCD_WIDTH/FONT_WIDTH) + 2) * 5];
+char* overlay_text[4];
 
-void draw_graph()
+void draw_graph(char* overlay[4])
 {
 	u8g.firstPage();
 		do
@@ -159,6 +161,10 @@ void draw_graph()
 			// graph scaling is done when saving the values, apearently
 			// TODO: that means if I want to use only part of the display, I need to change something there...
 		};
+			u8g.drawStr(0,14,overlay[0]);
+			u8g.drawStr(0,29,overlay[1]);
+			u8g.drawStr(0,44,overlay[2]);
+			u8g.drawStr(0,60,overlay[3]);
 		} while (u8g.nextPage());
 	
 	/* TODO: aanpassen aan nieuw LCD */
@@ -232,6 +238,329 @@ void draw_graph()
 // it works like a state machine
 void auto_go(profile_t* profile)
 {
+	char overlays[16][4];
+	overlay_text[0]=&overlays[0][0]; // TODO: this could be clearer and neater... as of now it is a kludge
+	overlay_text[1]=&overlays[0][1];
+	overlay_text[2]=&overlays[0][2];
+	overlay_text[3]=&overlays[0][3];
+
+	sensor_filter_reset();
+	
+	settings_load(&settings); // load from eeprom
+	
+	// validate the profile before continuing
+	if (!profile_valid(profile))
+	{
+		u8g.firstPage();
+		do
+		{
+			u8g.drawStr(0, 28, "Error");
+			u8g.drawStr(0, 44, "in profile !");
+		} while (u8g.nextPage());
+		delay(1000);
+		return;
+	}
+	
+	fprintf_P(&log_stream, PSTR("auto mode session start,\n"));
+	
+	// this will be used for many things later
+	double max_heat_rate = settings.max_temp / settings.time_to_max;
+	
+	// reset the graph
+	for (int i = 0; i < LCD_WIDTH; i++)
+	{
+		temp_history[i] = 0;
+		temp_plan[i] = 0;
+	}
+	temp_history_idx = 0;
+	
+	// total duration is calculated so we know how big the graph needs to span
+	// note, this calculation is only an worst case estimate
+	// it is also aware of whether or not the heating rate can be achieved
+	double total_duration = (double)(profile->soak_length + profile->time_to_peak) +
+							((profile->soak_temp1 - ROOM_TEMP) / min(profile->start_rate, max_heat_rate)) + 
+							((profile->peak_temp - ROOM_TEMP) / profile->cool_rate) +
+							10.0; // some extra just in case
+	double graph_tick = total_duration / LCD_WIDTH;
+	double graph_timer = 0.0;
+
+	// some more variable initialization
+	double integral = 0.0, last_error = 0.0;
+	char stage = 0; // the state machine state
+	uint32_t total_cnt = 0; // counter for the entire process
+	uint16_t length_cnt = 0; // counter for a particular stage
+	char update_graph = 0; // if there is new stuff to draw
+	uint16_t pwm_ocr = 0; // temporary holder for PWM duty cycle
+	double tgt_temp = sensor_to_temperature(sensor_read());
+	double start_temp = tgt_temp;
+	uint16_t cur_sensor = sensor_read();
+	while (1)
+	{	
+		if (tmr_checktemp_flag)
+		{
+			tmr_checktemp_flag = 0;
+			
+			total_cnt++;
+			
+			cur_sensor = sensor_read();
+			
+			if (DEMO_MODE)
+			{
+				// in demo mode, we fake the reading
+				cur_sensor = temperature_to_sensor(tgt_temp);
+			}
+			
+			if (stage == 0) // preheat to thermal soak temperature
+			{
+				length_cnt++;
+				if (sensor_to_temperature(cur_sensor) >= profile->soak_temp1)
+				{
+					// reached soak temperature
+					stage++;
+					integral = 0.0;
+					last_error = 0.0;
+					length_cnt = 0;
+				}
+				else
+				{
+					// calculate next temperature by increasing current temperature
+					tgt_temp = max(ROOM_TEMP, start_temp) + (profile->start_rate * TMR_OVF_TIMESPAN * 256 * length_cnt);
+					
+					if (length_cnt % 8 == 0)
+					{
+						start_temp = sensor_to_temperature(cur_sensor);
+						length_cnt = 0;
+					}
+					
+					tgt_temp = min(tgt_temp, profile->soak_temp1);
+					
+					// calculate the maximum allowable PWM duty cycle because we already know the maximum heating rate
+					//uint32_t upperlimit = lround((1.125 * 65535.0 * profile->start_rate) / max_heat_rate);
+					//upperlimit = max(upperlimit, approx_pwm(temperature_to_sensor(tgt_temp)));
+					
+					// calculate and set duty cycle
+					uint16_t pwm = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
+					pwm_ocr = pwm;
+					//pwm_ocr = pwm > upperlimit ? upperlimit : pwm;
+				}
+			}
+			
+			if (stage == 1) // thermal soak stage, ensures entire PCB is evenly heated
+			{
+				length_cnt++;
+				if (((uint16_t)lround(length_cnt * TMR_OVF_TIMESPAN * 256) > profile->soak_length))
+				{
+					// has passed time duration, next stage
+					length_cnt = 0;
+					stage++;
+					integral = 0.0;
+					last_error = 0.0;
+				}
+				else
+				{
+					// keep the temperature steady
+					tgt_temp = (((profile->soak_temp2 - profile->soak_temp1) / profile->soak_length) * (length_cnt * TMR_OVF_TIMESPAN * 256)) + profile->soak_temp1;
+					tgt_temp = min(tgt_temp, profile->soak_temp2);
+					pwm_ocr = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
+				}
+			}
+			
+			if (stage == 2) // reflow stage, try to reach peak temp
+			{
+				length_cnt++;
+				if (((uint16_t)lround(length_cnt * TMR_OVF_TIMESPAN * 256) > profile->time_to_peak))
+				{
+					// has passed time duration, next stage
+					length_cnt = 0;
+					stage++;
+					integral = 0.0;
+					last_error = 0.0;
+				}
+				else
+				{
+					// raise the temperature
+					tgt_temp = (((profile->peak_temp - profile->soak_temp2) / profile->time_to_peak) * (length_cnt * TMR_OVF_TIMESPAN * 256)) + profile->soak_temp2;
+					tgt_temp = min(tgt_temp, profile->peak_temp);
+					pwm_ocr = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
+				}
+			}
+			
+			if (stage == 3) // make sure we've reached peak temperature
+			{
+				if (sensor_to_temperature(cur_sensor) >= profile->peak_temp)
+				{
+					stage++;
+					integral = 0.0;
+					last_error = 0.0;
+					length_cnt = 0;
+				}
+				else
+				{
+					tgt_temp = profile->peak_temp + 5.0;
+					pwm_ocr = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
+				}
+			}
+			
+			if (stage == 4) // cool down
+			{
+				length_cnt++;
+				if (cur_sensor < temperature_to_sensor(ROOM_TEMP * 1.25))
+				{
+					pwm_ocr = 0; // turn off
+					tgt_temp = ROOM_TEMP;
+					stage++;
+				}
+				else
+				{
+					// change the target temperature
+					tgt_temp = profile->peak_temp - (profile->cool_rate * TMR_OVF_TIMESPAN * 256 * length_cnt);
+					uint16_t pwm = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
+					
+					// apply a upper limit to the duty cycle to avoid accidentally heating instead of cooling
+					//uint16_t ap = approx_pwm(temperature_to_sensor(tgt_temp));
+					//pwm_ocr = pwm > ap ? ap : pwm;
+					pwm_ocr = pwm;
+				}
+			}
+			
+			// heat_set(pwm_ocr); // set the heating element power -- todo:convert
+			
+			graph_timer += TMR_OVF_TIMESPAN * 256;
+			
+			if (stage != 5 && graph_timer >= graph_tick)
+			{
+				graph_timer -= graph_tick;
+				// it's time for a new entry on the graph
+				
+				if (temp_history_idx == (LCD_WIDTH - 1))
+				{
+					// the graph is longer than expected
+					// so shift the graph
+					for (int i = 0; i < LCD_WIDTH - 1; i++)
+					{
+						temp_plan[i] = temp_plan[i+1];
+						temp_history[i] = temp_history[i+1];
+					}
+				}
+				
+				// shift the graph down a bit to get more room
+				int32_t shiftdown = lround((ROOM_TEMP * 1.25 / settings.max_temp) * LCD_HEIGHT);
+				
+				// calculate the graph plot entries
+				
+				int32_t plan = lround((tgt_temp / settings.max_temp) * LCD_HEIGHT) - shiftdown;
+				temp_plan[temp_history_idx] = plan >= LCD_HEIGHT ? LCD_HEIGHT : (plan <= 0 ? 0 : plan);
+				
+				int32_t history = lround((sensor_to_temperature(cur_sensor) / settings.max_temp) * LCD_HEIGHT) - shiftdown;
+				temp_history[temp_history_idx] = history >= LCD_HEIGHT ? LCD_HEIGHT : (history <= 0 ? 0 : history);
+				
+				if (temp_history_idx < (LCD_WIDTH - 1) && (temp_plan[temp_history_idx] != 0 || temp_plan[temp_history_idx] != 0))
+				{
+					temp_history_idx++;
+				}
+				
+				update_graph = 1;
+			}
+		}
+		
+		if (tmr_drawlcd_flag)
+		{
+			tmr_drawlcd_flag = 0;
+			
+			// print some data to top left corner of LCD
+			//sprintf_P(&(graph_text[0]), PSTR("cur:%d`C "), (uint16_t)lround(sensor_to_temperature(cur_sensor)));
+			//sprintf_P(&(graph_text[1*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
+			// print some data to top left corner of LCD
+			sprintf_P(&(overlays[0][0]), PSTR("cur:%d`C "), (uint16_t)lround(sensor_to_temperature(cur_sensor)));
+			sprintf_P(&(overlays[0][1]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
+			
+			// tell the user about the current stage
+			switch (stage)
+			{
+				case 0:
+					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Preheat"));
+					sprintf_P(&overlays[0][2], PSTR("Preheat"));
+					break;
+				case 1:
+					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Soak   "));
+					sprintf_P(&overlays[0][2], PSTR("Soak   "));
+					break;
+				case 2:
+				case 3:
+					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Reflow"));
+					sprintf_P(&(overlays[0][2]), PSTR("Reflow"));
+					break;
+				case 4:
+					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Cool  "));
+					sprintf_P(&(overlays[0][2]), PSTR("Cool  "));
+					break;
+				default:
+					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Done  "));
+					sprintf_P(&(overlays[0][2]), PSTR("Done  "));
+					break;
+			}
+			
+			// indicate whether or not this is running in demo mode
+			if (DEMO_MODE)
+			{
+				//sprintf_P(&(graph_text[3*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Demo  "));
+				sprintf_P(&overlays[0][3], PSTR("Demo  "));
+			}
+			else
+			{
+				//graph_text[3*((LCD_WIDTH/FONT_WIDTH) + 2)] = 0;
+				overlays[0][3]=0;
+			}
+			
+			if (update_graph)
+			{
+				update_graph = 0;
+				draw_graph(overlay_text);
+			}
+		}
+		
+		if (tmr_writelog_flag)
+		{
+			tmr_writelog_flag = 0;
+			
+			// print to CSV log format
+			fprintf_P(&log_stream, PSTR("%d, "), stage);
+			fprintf_P(&log_stream, PSTR("%s, "), str_from_double(total_cnt * TMR_OVF_TIMESPAN * 256, 1));
+			fprintf_P(&log_stream, PSTR("%d, "), cur_sensor);
+			fprintf_P(&log_stream, PSTR("%d, "), temperature_to_sensor(tgt_temp));
+			
+			fprintf_P(&log_stream, PSTR("%s,\n"), str_from_int(pwm_ocr));
+			
+			//fprintf_P(&log_stream, PSTR("%s, "), str_from_int(pwm_ocr));
+			//fprintf_P(&log_stream, PSTR("%s,\n"), str_from_double(integral, 1));
+		}
+		
+		// hold down mid button to stop
+		if (button_enter())
+		{
+			if (stage != 5)
+			{
+				u8g.firstPage();
+				do
+				{
+				u8g.drawStr(50, 28, "DONE!");
+				} while (u8g.nextPage());
+			}
+			delay(25);
+			while (button_enter());
+			delay(25);
+			
+			if (stage != 5)
+			{
+				stage = 5;
+			}
+			else
+			{
+				// release and hold down again to exit
+				return;
+			}
+		}
+	}
 /* TODO: aanpassen */
 #if 0
 	sensor_filter_reset();
