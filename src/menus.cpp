@@ -469,7 +469,6 @@ void menu_edit_settings()
 			u8g.drawStr(6, 12, "PID P =");
 			u8g.drawStr(6, 28, "PID I =");
 			u8g.drawStr(6, 44, "PID D =");
-			//u8g.drawStr(6, 60, "Max °C"); // TODO: fix display of degree sign °, it shows as ã° -ish. 
 			u8g.drawStr(6, 60, "Max\xb0""C"); 
 			// the degree sign is 176 in the unifont font table, but without prefixed x the number is octal so x0b was simpler, but the the C is seen as hex too, so use string concatenation
 			u8g.setPrintPos(70, 12);
@@ -590,11 +589,8 @@ void main_menu() // main menu is also main loop.
 			u8g.drawStr(6, 28, "Set Temperature");
 			u8g.drawStr(6, 44, "Set PWM");
 			u8g.drawStr(6, 60, "Edit Settings");
-			//u8g.setPrintPos(110, 12);
-			//u8g.print(selection, DEC);
 		} while (u8g.nextPage());
-		// delay(500); // should instead todo: use millis() for polling and make a superloop that way that also reads temperature and does PID at a set rate. -- meh, for set manual temperature and for reflow. So best make the PID a reusable function
-
+	
 		if (button_enter())
 		{
 			delay(25); 

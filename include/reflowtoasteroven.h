@@ -30,16 +30,13 @@
 
 #include <stdio.h>
 
-/* TODO: check which of these are unused after conversion to m328p, lcd, rotary encoder and can be removed */
-#define TMR_PRESCALER 64
-#define TMR_OVF_TIMESPAN 0.002048// timespan (in seconds) between consecutive timer overflow events
-//#define THERMOCOUPLE_CONSTANT 0.32  // For 3v3 suply/adcref  this is derived from the AD595AQ datasheet - 10 mV/C and 3.3V/1023 = 0,0032V/ADC tick = 3.2mV ^ 0,32 C
-#define THERMOCOUPLE_CONSTANT 0.48876 // For 5V supply/ ADCref this is derived from the AD595AQ datasheet - 10 mV/C and 5V/1023 = 0,00489V/ADC tick = 4.9mV ^ 0,489 C
+#define TMR_OVF_TIMESPAN 0.002048		// timespan (in seconds) between consecutive timer overflow events
+//#define THERMOCOUPLE_CONSTANT 0.32  	// For 3v3 suply/adcref  this is derived from the AD595AQ datasheet - 10 mV/C and 3.3V/1023 = 0,0032V/ADC tick = 3.2mV ^ 0,32 C
+#define THERMOCOUPLE_CONSTANT 0.48876 	// For 5V supply/ ADCref this is derived from the AD595AQ datasheet - 10 mV/C and 5V/1023 = 0,00489V/ADC tick = 4.9mV ^ 0,489 C
 #define ROOM_TEMP 20.0
-#define TEMP_MEASURE_CHAN 0 // the ADC pin connected to the AD595AQ
-#define DEMO_MODE 1 // 1 means the current temperature reading will always be overwritten to match the target temperature, note that PWM output is still active even if in DEMO mode
-#define BOOTLOADER_ADDR 0x7000
-#define ROTENC_PPS 4 //4 pulses per step, so divide read value by 4
+#define TEMP_MEASURE_CHAN 0 			// the ADC pin connected to the AD595AQ
+#define DEMO_MODE 0 					// 1 means the current temperature reading will always be overwritten to match the target temperature, note that PWM output is still active even if in DEMO mode
+#define ROTENC_PPS 4 					// 4 pulses per step, so divide read value by 4
 
 
 typedef struct

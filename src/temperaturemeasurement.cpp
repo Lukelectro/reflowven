@@ -148,5 +148,3 @@ void adc_init()
 	ADCSRB = 0; // 0 is the default (for free running mode and no analog comperator)
 	DIDR0 = (1<<TEMP_MEASURE_CHAN); // disable digital input buffer on analog input pin
 }
-
-//TODO: check what ThermocoupleIC I use and convert if needed.

@@ -205,10 +205,10 @@ void auto_go(profile_t *profile)
 	{
 		if (millis() - prevmilis > 500)
 		{ // this is a bit of a kludge to replace the flags set in timer ISR. And since worst case all 3 are done anyway, why not do all 3 always? As long as it takes less then 500 ms...
-			// TODO: check timing! (see if there is no task starvation / see if doing all 3 does indeed take less then 500 ms)
 			prevmilis = millis();
 			tick++;
 			tmr_checktemp_flag = 1; // 0.5s
+			#if 0
 			if (0 != (tick & 0x01))
 			{
 				tmr_writelog_flag = 1; // 1s
@@ -217,6 +217,10 @@ void auto_go(profile_t *profile)
 			{
 				tmr_drawlcd_flag = 1; // 2s
 			}
+			#else // test what happens if all is done always -- still has time left over, good!
+			tmr_writelog_flag = 1; 
+			tmr_drawlcd_flag = 1;
+			#endif
 			PORTD|=(1<<7); // debugled ON
 		}
 		else
@@ -397,10 +401,10 @@ void auto_go(profile_t *profile)
 			// print the graph and overlay current temperature, target temperature, and phase of reflow
 			u8g.firstPage();
 			do
-			{
+			{	
 				u8g.drawStr(38, 14, "\xb0"
 									"C"); // 0xb0 is the degree sign in the unifont table
-				u8g.drawStr(38, 29, "\xb0"
+				u8g.drawStr(25, 29, "\xb0"
 									 "C");
 				u8g.setPrintPos(0, 14);
 				u8g.print(sensor_to_temperature(cur_sensor), 1);
