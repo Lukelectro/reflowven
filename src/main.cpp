@@ -153,7 +153,6 @@ uint8_t temp_plan[LCD_WIDTH]; // also store the target temperature for compariso
 // it works like a state machine
 void auto_go(profile_t* profile)
 {
-	char overlays[4][16];
 	uint32_t prevmilis;
 	uint8_t tick=0;
 
@@ -348,7 +347,7 @@ void auto_go(profile_t* profile)
 				}
 			}
 			
-			// heat_set(pwm_ocr); // set the heating element power -- todo:convert
+			heat_set(pwm_ocr); // set the heating element power
 			
 			graph_timer += TMR_OVF_TIMESPAN * 256;
 			
@@ -390,71 +389,52 @@ void auto_go(profile_t* profile)
 		
 		if (tmr_drawlcd_flag)
 		{
-			tmr_drawlcd_flag = 0;
-			
-			// print some data to top left corner of LCD
-			//sprintf_P(&(graph_text[0]), PSTR("cur:%d`C "), (uint16_t)lround(sensor_to_temperature(cur_sensor)));
-			//sprintf_P(&(graph_text[1*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
-			// print some data to top left corner of LCD
-			sprintf_P(&(overlays[0][0]), PSTR("cur:%d`C "), (uint16_t)lround(sensor_to_temperature(cur_sensor)));
-			sprintf_P(&(overlays[1][0]), PSTR("tgt:%d`C "), (uint16_t)lround(tgt_temp));
-			
-			// tell the user about the current stage
-			switch (stage)
-			{
+			tmr_drawlcd_flag = 0;		
+			// print the graph and overlay current temperature, target temperature, and phase of reflow
+			u8g.firstPage();
+			do
+			{	
+				u8g.drawStr(38, 14, "\xb0""C tgt"); // 0xb0 is the degree sign in the unifont table
+				u8g.drawStr(110, 14, "\xb0""C");
+				u8g.setPrintPos(0, 14);
+				u8g.print(sensor_to_temperature(cur_sensor), 1);
+				u8g.setPrintPos(88, 14);
+				u8g.print(tgt_temp, 0);
+				switch (stage)
+				{
 				case 0:
-					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Preheat"));
-					sprintf_P(&overlays[2][0], PSTR("Preheat"));
+					u8g.drawStr(0,29,"Preheat");
 					break;
 				case 1:
-					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Soak   "));
-					sprintf_P(&overlays[2][0], PSTR("Soak   "));
+					u8g.drawStr(0,29,"Soak");
 					break;
 				case 2:
 				case 3:
-					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Reflow"));
-					sprintf_P(&(overlays[2][0]), PSTR("Reflow"));
+					u8g.drawStr(0,29,"Reflow");
 					break;
 				case 4:
-					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Cool  "));
-					sprintf_P(&(overlays[2][0]), PSTR("Cool  "));
+					u8g.drawStr(0,29,"Cool");
+					break;
+				case 5:
+					u8g.drawStr(0,29,"Done");
 					break;
 				default:
-					//sprintf_P(&(graph_text[2*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Done  "));
-					sprintf_P(&(overlays[2][0]), PSTR("Done  "));
+					u8g.drawStr(0,29,"oops!");
 					break;
 			}
-			
-			// indicate whether or not this is running in demo mode
-			if (DEMO_MODE)
-			{
-				//sprintf_P(&(graph_text[3*((LCD_WIDTH/FONT_WIDTH) + 2)]), PSTR("Demo  "));
-				sprintf_P(&overlays[3][0], PSTR("Demo  "));
-			}
-			else
-			{
-				//graph_text[3*((LCD_WIDTH/FONT_WIDTH) + 2)] = 0;
-				overlays[0][3]=0;
-			}
-			
-			if (update_graph)
-			{
-				update_graph = 0;
-				//draw_graph(overlay_text);
-				u8g.firstPage();
-				do
-				{	
+				if(DEMO_MODE){
+					u8g.drawStr(0,44,"DEMO");
+				}
+
+				//if(update_graph){ // TODO: debug why no graph is shown.
+					update_graph = 0;
 					for(unsigned char x=0;x<LCD_WIDTH;x++){
-					u8g.drawPixel(x,LCD_HEIGHT-temp_history[x]); 
-					// graph scaling is done when saving the values, apearently
-					// TODO: that means if I want to use only part of the display, I need to change something there...
-				};
-					u8g.drawStr(0,14,&overlays[0][0]);
-					u8g.drawStr(0,29,&overlays[1][0]);
-					u8g.drawStr(0,44,&overlays[2][0]);
-					u8g.drawStr(0,60,&overlays[3][0]);
-				} while (u8g.nextPage());
-			}
+					u8g.drawPixel(x,temp_history[x]); 
+					// graph scaling is done when saving the values
+					};
+				//}
+
+			} while (u8g.nextPage());	
 		}
 		
 		if (tmr_writelog_flag)
