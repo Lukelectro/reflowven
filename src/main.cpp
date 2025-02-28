@@ -56,23 +56,31 @@ FILE log_stream;						 // different in cpp from c = FDEV_SETUP_STREAM(log_putcha
 static int log_putchar_stream(char c, FILE *stream);
 
 int main()
-{
+{	
+	uint8_t wdtflag = 0;
+	wdt_reset();
+	if(MCUSR&_BV(WDRF)){ 		// if watchdogtimer has reset the avr:
+		MCUCR&=~(_BV(WDRF)); 	// clear the flag
+		wdtflag = 1;
+	}
+	wdt_reset();
+	wdt_enable(WDTO_8S);
+
 	fdev_setup_stream(&log_stream, log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 
 	// initialize stuff here
+	wdt_reset();
 	init(); // init function from arduino. Sets up ADC and timers etc. for their default arduino-usage
 	// that means the reflow oven can't use a timer interrupt for PWM, like Frank Zhao originaly did.
-
 	Serial.begin(9600); // output stream / log / debug
-
+	wdt_reset();
 	fprintf_P(&log_stream, PSTR("hello world,\n"));
-
 	button_init();
-
+	wdt_reset();
 	u8g.begin();
 	u8g.setFont(u8g_font_unifont);
-	adc_init();
-
+	adc_init(); // sets up adc for reflow oven thermocouple
+	wdt_reset();
 	heat_init();
 	Timer1.initialize(TMR_OVF_TIMESPAN * 1000000); // microseconds of timer period... So for 490 Hz, about 2048 (TIMER_OVF_TIMESPAN is the same thing, but in seconds)
 	Timer1.attachInterrupt(heat_isr);
@@ -81,9 +89,27 @@ int main()
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 
 	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
+	wdt_reset();
 
 	// initialization has finished here
 
+	if(wdtflag){
+			//and display a message
+			u8g.firstPage();
+		do
+		{
+			wdt_reset();
+			u8g.drawStr(0, 14, "Error");
+			u8g.drawStr(0, 28, "WDT timeout !");
+			u8g.drawStr(0, 60, "Have you tried turning");
+			u8g.drawStr(0, 60, "it off and on again?");
+		} while (u8g.nextPage());
+		while(1){
+			delay(400);
+			wdt_reset();
+		}; // if something hapens, it will be obvious
+		}
+	wdt_reset();
 	main_menu(); // enter the menu system
 
 	return 0;
@@ -165,7 +191,13 @@ void auto_go(profile_t *profile)
 			u8g.drawStr(0, 28, "Error");
 			u8g.drawStr(0, 44, "in profile !");
 		} while (u8g.nextPage());
-		delay(1000);
+		wdt_reset();
+		delay(400);
+		wdt_reset();
+		delay(400);
+		wdt_reset();
+		delay(200);
+		wdt_reset();
 		return;
 	}
 
@@ -489,6 +521,7 @@ void auto_go(profile_t *profile)
 				return;
 			}
 		}
+		wdt_reset();
 	}
 }
 
