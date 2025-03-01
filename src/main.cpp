@@ -34,6 +34,7 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <util/delay.h>
 
@@ -55,16 +56,22 @@ FILE log_stream;						 // different in cpp from c = FDEV_SETUP_STREAM(log_putcha
 
 static int log_putchar_stream(char c, FILE *stream);
 
+uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
+void get_mcusr(void) \
+  __attribute__((naked)) \
+  __attribute__((section(".init3")));
+void get_mcusr(void)
+{
+  mcusr_mirror = MCUSR;
+  MCUSR = 0;
+  wdt_disable();
+}
+
 int main()
 {	
-	uint8_t wdtflag = 0;
+	//get_mcusr();
 	wdt_reset();
-	if(MCUSR&_BV(WDRF)){ 		// if watchdogtimer has reset the avr:
-		MCUCR&=~(_BV(WDRF)); 	// clear the flag
-		wdtflag = 1;
-	}
-	wdt_reset();
-	wdt_enable(WDTO_8S);
+	//wdt_enable(WDTO_8S);
 
 	fdev_setup_stream(&log_stream, log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 
@@ -93,15 +100,14 @@ int main()
 
 	// initialization has finished here
 
-	if(wdtflag){
-			//and display a message
+	if(mcusr_mirror & _BV(WDTCSR)){ // if the reset was caused by the WDT display a message
 			u8g.firstPage();
 		do
 		{
 			wdt_reset();
-			u8g.drawStr(0, 14, "Error");
-			u8g.drawStr(0, 28, "WDT timeout !");
-			u8g.drawStr(0, 60, "Have you tried turning");
+			u8g.drawStr(0, 14, "TEST");
+			//u8g.drawStr(0, 28, "WDT timeout !");
+			u8g.drawStr(0, 44, "Have you tried turning");
 			u8g.drawStr(0, 60, "it off and on again?");
 		} while (u8g.nextPage());
 		while(1){
