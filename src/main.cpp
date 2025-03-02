@@ -50,7 +50,7 @@
 #include "heatingelement.h"
 #include "menu.h"
 
-#if 0 // set fuses to this, or #if 1 to include them in the .elf
+#if 0 // set fuses to this, or #if 1 to include them in the .elf. Note: these are for Atmega328 -- TODO: use fuse names instead of magic numbers
 FUSES = 
 {
     0xD2, // .low -- CKDIV8 disabled, so 8MHz instead of 1 MHz. Startup time disabled.
@@ -81,10 +81,10 @@ int main()
 {	
 	wdt_reset();
 	//try it inline, then
-	mcusr_mirror = MCUSR;
-	MCUSR = 0;
-	wdt_disable(); 
-	// /try it inline, then
+	//mcusr_mirror = MCUSR;
+	//MCUSR = 0;
+	//wdt_disable(); 
+	// /try it inline, then (Hum. Leaving it out makes no difference either...)
 
 	// inline, it does not cause a hang, so the hang is caused by calling a function with attribute naked, as these have no return adres.
 	// still, after a WDT time-out triggers, the MCU just 'hangs' with whatever message was on the LCD at the time on the LCD. The 'error: wdt reset' message is never shown...
