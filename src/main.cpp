@@ -50,11 +50,16 @@
 #include "heatingelement.h"
 #include "menu.h"
 
-settings_t settings;					 // store this globally so it's easy to access
-U8GLIB_ST7920_128X64_1X u8g(A3, A5, A4); // SPI Com: SCK = en = LCD4 = PC3 = A3, MOSI = rw = SID = LCDE = PC5 = A5, CS = di = RS =LCDRS =PC4 = A4
-FILE log_stream;						 // different in cpp from c = FDEV_SETUP_STREAM(log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
+#if 0 // set fuses to this, or #if 1 to include them in the .elf
+FUSES = 
+{
+    0xD2, // .low -- CKDIV8 disabled, so 8MHz instead of 1 MHz. Startup time disabled.
+    HFUSE_DEFAULT, // .high
+    0xFC, // .extended -- bodlevel 4.5V (BOD is recommended to be enablen when disabling startup time, startup time needs to be disabled for WDT else it times out before startup is complete)
+};
+#endif
 
-static int log_putchar_stream(char c, FILE *stream);
+settings_t settings;					 // store this globally so it's easy to access
 
 uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
 void get_mcusr(void) \
@@ -64,14 +69,32 @@ void get_mcusr(void)
 {
   mcusr_mirror = MCUSR;
   MCUSR = 0;
-  wdt_disable();
+  wdt_disable(); 
+  PORTD|=_BV(PD7); // set debugled ON (does this even get called?) -- no, not unless I let main call it, but that makes no sense as this needs to be called directly at reset / restart. TODO: Why is this never run?
 }
+
+U8GLIB_ST7920_128X64_1X u8g(A3, A5, A4); // SPI Com: SCK = en = LCD4 = PC3 = A3, MOSI = rw = SID = LCDE = PC5 = A5, CS = di = RS =LCDRS =PC4 = A4
+FILE log_stream;						 // different in cpp from c = FDEV_SETUP_STREAM(log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
+static int log_putchar_stream(char c, FILE *stream);
 
 int main()
 {	
-	//get_mcusr();
 	wdt_reset();
-	//wdt_enable(WDTO_8S);
+	//try it inline, then
+	mcusr_mirror = MCUSR;
+	MCUSR = 0;
+	wdt_disable(); 
+	// /try it inline, then
+
+	// inline, it does not cause a hang, so the hang is caused by calling a function with attribute naked, as these have no return adres.
+	// still, after a WDT time-out triggers, the MCU just 'hangs' with whatever message was on the LCD at the time on the LCD. The 'error: wdt reset' message is never shown...
+	// if I make debugled blink on startup, it does not blink after a (deliberate) WDT time-out
+
+	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
+	PORTD|=_BV(PD7); // set debugled ON
+	PORTD&=~_BV(PD7); // set debugled OFF
+	wdt_enable(WDTO_2S);
+	wdt_reset();
 
 	fdev_setup_stream(&log_stream, log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 
@@ -95,18 +118,18 @@ int main()
 
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 
-	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
 	wdt_reset();
 
 	// initialization has finished here
 
-	if(mcusr_mirror & _BV(WDTCSR)){ // if the reset was caused by the WDT display a message
-			u8g.firstPage();
+	if(mcusr_mirror & _BV(WDRF)){ // if the reset was caused by the WDT display a message
+	//if(MCUSR & _BV(WDRF)){ // if the reset was caused by the WDT display a message
+		u8g.firstPage();
 		do
 		{
 			wdt_reset();
 			u8g.drawStr(0, 14, "TEST");
-			//u8g.drawStr(0, 28, "WDT timeout !");
+			u8g.drawStr(0, 28, "WDT timeout !");
 			u8g.drawStr(0, 44, "Have you tried turning");
 			u8g.drawStr(0, 60, "it off and on again?");
 		} while (u8g.nextPage());
@@ -575,3 +598,10 @@ static int log_putchar_stream(char c, FILE *stream)
 	Serial.write(c); /* uart instead of USB, using arduino */
 	return 0;
 }
+
+#if 0 // for debug. It did not trigger, which is good
+ISR(WDT_vect){
+	PORTD|=_BV(PD7); // set debugled
+	return;
+}
+#endif
