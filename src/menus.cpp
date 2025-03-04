@@ -40,8 +40,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
-#include <avr/io.h>
-#include <avr/wdt.h>
 
 // this string is allocated for temporary use
 char strbuf[(LCD_WIDTH / FONT_WIDTH) + 2];
@@ -108,7 +106,6 @@ void menu_manual_pwm_ctrl()
 	
 	while (1)
 	{
-		wdt_reset();
 		heat_set(pwm);
 		rot_enc_val = 1024*RotEnc.read()/ROTENC_PPS;
 
@@ -198,7 +195,6 @@ void menu_manual_temp_ctrl()
 	
 	while (1)
 	{
-		wdt_reset();
 		heat_set(cur_pwm);
 
 		//todo: this can be done smarter/faster then with a lot of doubles, maybe look into later if needed. Or could use change_value_double()...); function...
@@ -275,7 +271,6 @@ void menu_edit_profile(profile_t *profile)
 
 	while (1)
 	{
-		wdt_reset();
 		heat_set(0); // turn off for safety
 		
 		// u8glib picture loop
@@ -401,7 +396,6 @@ void menu_auto_mode()
 
 	while (1)
 	{
-		wdt_reset();
 		heat_set(0); // turn off for safety
 		selection = (RotEnc.read() / ROTENC_PPS) & 0x03; // only allow 0,1,2,3 - mask instead of modulo so it wont go negative either.
 
@@ -464,8 +458,7 @@ void menu_edit_settings()
 
 	while (1)
 	{
-		wdt_reset();
-		heat_set(0); // turn off for safety
+		 heat_set(0); // turn off for safety
 		
 		// u8glib picture loop
 		u8g.firstPage();
@@ -583,8 +576,7 @@ void main_menu() // main menu is also main loop.
 	fprintf_P(&log_stream, PSTR("Main Menu,\n"));
 
 	while (1)
-	{	
-		wdt_reset();
+	{
 		heat_set(0); // turn off for safety
 		selection = (RotEnc.read() / ROTENC_PPS) & 0x03; // only allow 0,1,2,3 - mask instead of modulo so it wont go negative either.
 

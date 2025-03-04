@@ -34,7 +34,6 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <math.h>
 #include <util/delay.h>
 
@@ -50,67 +49,30 @@
 #include "heatingelement.h"
 #include "menu.h"
 
-#if 0 // set fuses to this, or #if 1 to include them in the .elf. Note: these are for Atmega328 -- TODO: use fuse names instead of magic numbers
-FUSES = 
-{
-    0xD2, // .low -- CKDIV8 disabled, so 8MHz instead of 1 MHz. Startup time disabled.
-    HFUSE_DEFAULT, // .high
-    0xFC, // .extended -- bodlevel 4.5V (BOD is recommended to be enablen when disabling startup time, startup time needs to be disabled for WDT else it times out before startup is complete)
-};
-#endif
-
 settings_t settings;					 // store this globally so it's easy to access
-
-uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
-void get_mcusr(void) \
-  __attribute__((naked)) \
-  __attribute__((section(".init3")));
-void get_mcusr(void)
-{
-  mcusr_mirror = MCUSR;
-  MCUSR = 0;
-  wdt_disable(); 
-  PORTD|=_BV(PD7); // set debugled ON (does this even get called?) -- no, not unless I let main call it, but that makes no sense as this needs to be called directly at reset / restart. TODO: Why is this never run?
-}
-
 U8GLIB_ST7920_128X64_1X u8g(A3, A5, A4); // SPI Com: SCK = en = LCD4 = PC3 = A3, MOSI = rw = SID = LCDE = PC5 = A5, CS = di = RS =LCDRS =PC4 = A4
 FILE log_stream;						 // different in cpp from c = FDEV_SETUP_STREAM(log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
+
 static int log_putchar_stream(char c, FILE *stream);
 
 int main()
-{	
-	wdt_reset();
-	//try it inline, then
-	//mcusr_mirror = MCUSR;
-	//MCUSR = 0;
-	//wdt_disable(); 
-	// /try it inline, then (Hum. Leaving it out makes no difference either...)
-
-	// inline, it does not cause a hang, so the hang is caused by calling a function with attribute naked, as these have no return adres.
-	// still, after a WDT time-out triggers, the MCU just 'hangs' with whatever message was on the LCD at the time on the LCD. The 'error: wdt reset' message is never shown...
-	// if I make debugled blink on startup, it does not blink after a (deliberate) WDT time-out
-
-	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
-	PORTD|=_BV(PD7); // set debugled ON
-	PORTD&=~_BV(PD7); // set debugled OFF
-	wdt_enable(WDTO_2S);
-	wdt_reset();
-
+{
 	fdev_setup_stream(&log_stream, log_putchar_stream, NULL, _FDEV_SETUP_WRITE);
 
 	// initialize stuff here
-	wdt_reset();
 	init(); // init function from arduino. Sets up ADC and timers etc. for their default arduino-usage
 	// that means the reflow oven can't use a timer interrupt for PWM, like Frank Zhao originaly did.
+
 	Serial.begin(9600); // output stream / log / debug
-	wdt_reset();
+
 	fprintf_P(&log_stream, PSTR("hello world,\n"));
+
 	button_init();
-	wdt_reset();
+
 	u8g.begin();
 	u8g.setFont(u8g_font_unifont);
-	adc_init(); // sets up adc for reflow oven thermocouple
-	wdt_reset();
+	adc_init();
+
 	heat_init();
 	Timer1.initialize(TMR_OVF_TIMESPAN * 1000000); // microseconds of timer period... So for 490 Hz, about 2048 (TIMER_OVF_TIMESPAN is the same thing, but in seconds)
 	Timer1.attachInterrupt(heat_isr);
@@ -118,27 +80,10 @@ int main()
 
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 
-	wdt_reset();
+	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
 
 	// initialization has finished here
 
-	if(mcusr_mirror & _BV(WDRF)){ // if the reset was caused by the WDT display a message
-	//if(MCUSR & _BV(WDRF)){ // if the reset was caused by the WDT display a message
-		u8g.firstPage();
-		do
-		{
-			wdt_reset();
-			u8g.drawStr(0, 14, "TEST");
-			u8g.drawStr(0, 28, "WDT timeout !");
-			u8g.drawStr(0, 44, "Have you tried turning");
-			u8g.drawStr(0, 60, "it off and on again?");
-		} while (u8g.nextPage());
-		while(1){
-			delay(400);
-			wdt_reset();
-		}; // if something hapens, it will be obvious
-		}
-	wdt_reset();
 	main_menu(); // enter the menu system
 
 	return 0;
@@ -220,13 +165,7 @@ void auto_go(profile_t *profile)
 			u8g.drawStr(0, 28, "Error");
 			u8g.drawStr(0, 44, "in profile !");
 		} while (u8g.nextPage());
-		wdt_reset();
-		delay(400);
-		wdt_reset();
-		delay(400);
-		wdt_reset();
-		delay(200);
-		wdt_reset();
+		delay(1000);
 		return;
 	}
 
@@ -550,7 +489,6 @@ void auto_go(profile_t *profile)
 				return;
 			}
 		}
-		wdt_reset();
 	}
 }
 
@@ -598,10 +536,3 @@ static int log_putchar_stream(char c, FILE *stream)
 	Serial.write(c); /* uart instead of USB, using arduino */
 	return 0;
 }
-
-#if 0 // for debug. It did not trigger, which is good
-ISR(WDT_vect){
-	PORTD|=_BV(PD7); // set debugled
-	return;
-}
-#endif
