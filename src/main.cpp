@@ -80,8 +80,8 @@ int main()
 
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 
-	//DDRD|=(1<<PORTD7); // set PD7 output for debugLED -- no, is connected to (unused) sd card detect switch
-	DDRD|=_BV(5); // PORTD.5 output for buzzer
+	// DDRD|=(1<<PORTD7); // set PD7 output for debugLED -- no, is connected to (unused) sd card detect switch
+	DDRD |= _BV(5); // PORTD.5 output for buzzer
 
 	// initialization has finished here
 
@@ -99,7 +99,7 @@ double approx_pwm(double target)
 
 uint16_t pid(double target, double current, double *integral, double *last_error)
 {
-	double error = target - current;
+	double error;
 	if (target == 0)
 	{
 		// turn off if target temperature is 0
@@ -114,6 +114,8 @@ uint16_t pid(double target, double current, double *integral, double *last_error
 		{
 			target = 0;
 		}
+
+		error = target - current; // calculate this after limiting target to 0 or above... else oven switches ON once cooling has a setpoint below 0.
 
 		// calculate PID terms
 
@@ -209,7 +211,7 @@ void auto_go(profile_t *profile)
 			prevmilis = millis();
 			tick++;
 			tmr_checktemp_flag = 1; // 0.5s
-			#if 0
+#if 0
 			if (0 != (tick & 0x01))
 			{
 				tmr_writelog_flag = 1; // 1s
@@ -218,17 +220,16 @@ void auto_go(profile_t *profile)
 			{
 				tmr_drawlcd_flag = 1; // 2s
 			}
-			#else // test what happens if all is done always -- still has time left over, good!
-			tmr_writelog_flag = 1; 
+#else // test what happens if all is done always -- still has time left over, good!
+			tmr_writelog_flag = 1;
 			tmr_drawlcd_flag = 1;
-			#endif
-			//PORTD|=(1<<7); // debugled ON
+#endif
+			// PORTD|=(1<<7); // debugled ON
 		}
 		else
 		{
-			//PORTD&=~(1<<7); // debugled OFF. 
+			// PORTD&=~(1<<7); // debugled OFF.
 		}
-
 
 		if (tmr_checktemp_flag)
 		{
@@ -346,12 +347,20 @@ void auto_go(profile_t *profile)
 					/* beep */
 					PORTD |= _BV(5);
 					delay(50);
-					PORTD&=~_BV(5);
+					PORTD &= ~_BV(5);
 				}
 				else
 				{
-					// change the target temperature
-					tgt_temp = profile->peak_temp - (profile->cool_rate * TMR_OVF_TIMESPAN * 256 * length_cnt);
+					// change the target temperature (limit to 0)
+
+					if (tgt_temp <= 0)
+					{
+						tgt_temp = 0;
+					}
+					else
+					{
+						tgt_temp = profile->peak_temp - (profile->cool_rate * TMR_OVF_TIMESPAN * 256 * length_cnt);
+					}
 					uint16_t pwm = pid((double)temperature_to_sensor(tgt_temp), (double)cur_sensor, &integral, &last_error);
 
 					// apply a upper limit to the duty cycle to avoid accidentally heating instead of cooling
@@ -406,11 +415,11 @@ void auto_go(profile_t *profile)
 			// print the graph and overlay current temperature, target temperature, and phase of reflow
 			u8g.firstPage();
 			do
-			{	
+			{
 				u8g.drawStr(38, 14, "\xb0"
 									"C"); // 0xb0 is the degree sign in the unifont table
 				u8g.drawStr(25, 29, "\xb0"
-									 "C");
+									"C");
 				u8g.setPrintPos(0, 14);
 				u8g.print(sensor_to_temperature(cur_sensor), 1);
 				u8g.setPrintPos(0, 29);
@@ -442,7 +451,7 @@ void auto_go(profile_t *profile)
 					u8g.drawStr(0, 60, "DEMO");
 				}
 
-				//always draw graph, otherwise it gets erased next display refresh
+				// always draw graph, otherwise it gets erased next display refresh
 				for (unsigned char x = 0; x < LCD_WIDTH; x++)
 				{
 					u8g.drawPixel(x, LCD_HEIGHT - temp_history[x]);
