@@ -419,7 +419,7 @@ void auto_go(profile_t *profile)
 				u8g.drawStr(38, 14, "\xb0"
 									"C"); // 0xb0 is the degree sign in the unifont table
 				u8g.drawStr(25, 29, "\xb0"
-									"C");
+									"C set");
 				u8g.setPrintPos(0, 14);
 				u8g.print(sensor_to_temperature(cur_sensor), 1);
 				u8g.setPrintPos(0, 29);
