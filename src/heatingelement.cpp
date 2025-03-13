@@ -71,5 +71,3 @@ void heat_set(uint16_t ocr)
 {
 	pwm_ocr_temp = ocr >> 7;
 }
-
-//TODO: modify for Atmega328. Mayyyybe make PWM values 8 bit throughout? Why 16 if only lower 9 are used anyway?

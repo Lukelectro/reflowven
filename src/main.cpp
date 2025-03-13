@@ -80,7 +80,8 @@ int main()
 
 	fprintf_P(&log_stream, PSTR("reflow toaster oven,\n"));
 
-	DDRD|=(1<<PORTD7); // set PD7 output for debug LED
+	//DDRD|=(1<<PORTD7); // set PD7 output for debugLED -- no, is connected to (unused) sd card detect switch
+	DDRD|=_BV(5); // PORTD.5 output for buzzer
 
 	// initialization has finished here
 
@@ -221,11 +222,11 @@ void auto_go(profile_t *profile)
 			tmr_writelog_flag = 1; 
 			tmr_drawlcd_flag = 1;
 			#endif
-			PORTD|=(1<<7); // debugled ON
+			//PORTD|=(1<<7); // debugled ON
 		}
 		else
 		{
-			PORTD&=~(1<<7); // debugled OFF. 
+			//PORTD&=~(1<<7); // debugled OFF. 
 		}
 
 
@@ -341,7 +342,11 @@ void auto_go(profile_t *profile)
 				{
 					pwm_ocr = 0; // turn off
 					tgt_temp = ROOM_TEMP;
-					stage++;
+					stage++; // stage 5 is DONE
+					/* beep */
+					PORTD |= _BV(5);
+					delay(50);
+					PORTD&=~_BV(5);
 				}
 				else
 				{
