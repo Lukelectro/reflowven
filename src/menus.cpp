@@ -454,7 +454,7 @@ void menu_edit_settings()
 	settings_load(&settings); // load from eeprom
 	unsigned char selection = 0;
 	fprintf_P(&log_stream, PSTR("Edit Settings Menu,\n"));
-	unsigned char selecting = 1;
+	unsigned char whichdigit=0; // If 0, select which setting to edit. Else: number indicates which digit position to edit: Thousands, hundreds, tens, ones or 1/10s or 10/100s.
 
 	while (1)
 	{
@@ -498,13 +498,11 @@ void menu_edit_settings()
 				;
 			delay(25);
 			RotEnc.write(0); // reset rotary encoder before entering next mode...
-			selecting ^= 0x01 ; // exor = toggle selecting - if enter is pressed on a value edit that value untill enter is pressed again.
 
 			// act on the selection (return to main or reset...)
 			switch(selection){
 				case 5: // reset default
 						settings_setdefault(&settings);
-						selecting = 1;
 				break;
 				case 6: // save settings and return to main
 					if (settings_valid(&settings))
@@ -524,48 +522,77 @@ void menu_edit_settings()
 						u8g.drawStr(0, 28, "Review & fix");
 						} while (u8g.nextPage());
 						_delay_ms(1000);
-						selecting = 1; // back to select which setting to correct
 					}
 					break;
 				case 7: // discard changes and return to main
 					return;
 				break;
 				default:
+					whichdigit++; // select (next) digit to edit
 				break;
 			}
 		}
 
 		// edit values if not selecting
-		if(selecting == 1){
-			selection = (RotEnc.read() / ROTENC_PPS);
-			if(selection>254){ 		// underflow
+		float digit;
+		switch(whichdigit){
+			default:
+			// 0 and others should not occur here
+			break;
+			case 0: // selecting which value to edit
+				selection = (RotEnc.read() / ROTENC_PPS);
+				if(selection>254){ 		// underflow
 				RotEnc.write(7*ROTENC_PPS); 
-			}else if (selection>7){ // overflow
+				}else if (selection>7){ // overflow
 				RotEnc.write(0);
 			}
+			break;
+			case 1:
+			digit = 1000;
+			break;
+			case 2:
+			digit = 100;
+			break;
+			case 3:
+			digit = 10;
+			break;
+			case 4:
+			digit = 1;
+			break;
+			case 5:
+			digit = 0.10;
+			break;
+			case 6:
+			digit = 0.01;
+			break;
+			case 7:
+			whichdigit=0; // back to selecting values
+			break;
 		}
-		else
-		{
-			switch(selection){
-				case 0: // PID P
-					settings.pid_p = change_value_double(settings.pid_p, 0.1, 0.0, 10000.0);
-				break;
-				case 1: // PID I
-					settings.pid_i = change_value_double(settings.pid_i, 0.01, 0.0, 10000.0);
-				break;
-				case 2: // PID D
-					settings.pid_d = change_value_double(settings.pid_d, 0.01, -10000.0, 10000.0);
-				break;
-				case 3:	// maximum temperature
-				settings.max_temp = change_value_double(settings.max_temp, 1.0, 200.0, 350.0);
-				break;
-				case 4: // time to maximum
-				settings.time_to_max = change_value_double(settings.time_to_max, 1.0, 0.0, (double) 60*20);
-				break;
-				default:
-				break;
-			}
+
+		if(whichdigit !=0){ // only edit values when not selecting them
+		switch(selection){
+			case 0: // PID P
+				settings.pid_p = change_value_double(settings.pid_p, digit, 0.0, 10000.0);	
+			break;
+			case 1: // PID I
+				settings.pid_i = change_value_double(settings.pid_i, digit, 0.0, 10000.0);
+			break;
+			case 2: // PID D
+				settings.pid_d = change_value_double(settings.pid_d, digit, -10000.0, 10000.0);
+			break;
+			case 3:	// maximum temperature
+			settings.max_temp = change_value_double(settings.max_temp, 1.0, 200.0, 350.0);
+			whichdigit=6; // so on next press of enter, go back to selecting values
+			break;
+			case 4: // time to maximum
+			settings.time_to_max = change_value_double(settings.time_to_max, 1.0, 0.0, (double) 60*20);
+			whichdigit=6; // so on next press of enter, go back to selecting values
+			break;
+			default:
+			break;
 		}
+	}
 	}
 }
 

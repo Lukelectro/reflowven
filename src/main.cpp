@@ -519,11 +519,11 @@ void profile_setdefault(profile_t *profile)
 
 void settings_setdefault(settings_t *s)
 {
-	s->pid_p = 6000.0;
-	s->pid_i = 20.00;
-	s->pid_d = -0.00;
-	s->max_temp = 225.0;
-	s->time_to_max = 300.0;
+	s->pid_p = 2000.0;
+	s->pid_i = 5.00;
+	s->pid_d = -0.01;
+	s->max_temp = 230.0;
+	s->time_to_max = 220.0;
 }
 
 char profile_valid(profile_t *profile)
